@@ -1,0 +1,78 @@
+
+#
+#	Session Managament
+#
+init-1.1	drmaa_init wrong # args
+init-1.2	drmaa_init null contact
+init-1.3	drmaa_init invalid contact
+init-1.4	drmaa_init called twice
+#
+exit-1.0	drmaa_exit wrong # args
+exit-1.1	drmaa_exit following drmaa_init
+exit-1.2	drmaa_exit called twice
+
+#
+#	Job Template Routines
+#
+newjt
+#
+deljt
+#
+setattr
+#
+getattr
+#
+getattl
+#
+setvattr
+#
+getvattr
+#
+getvattl
+
+#
+#	Job Submission Routines
+#
+runjob
+#
+rubbulk
+
+#
+#	Job Control Routines
+#
+ctrl
+#
+jobps
+#
+synch
+#
+wait
+#
+wcored
+#
+wexits
+#
+wifabrt
+#
+wifexit
+#
+wifsig
+
+#
+#	Auxiliary Routines
+#
+contact-1.0	drmaa_get_contact wrong # args
+contact-1.1	drmaa_get_contact before drmaa_init
+contact-1.2	drmaa_get_contact after drmaa_init
+#
+drmimpl-1.0	drmaa_get_DRMAA_implementation wrong # args
+drmimpl-1.1	drmaa_get_DRMAA_implementation before drmaa_init
+drmimpl-1.2	drmaa_get_DRMAA_implementation after drmaa_init
+#
+drmsys-1.0	drmaa_get_DRM_system wrong # args
+drmsys-1.1	drmaa_get_DRM_system before drmaa_init
+drmsys-1.2	drmaa_get_DRM_system after drmaa_init
+#
+version-1.0	drmaa_version wrong # args
+version-1.1	drmaa_version before drmaa_init
+version-1.2	drmaa_version after drmaa_init

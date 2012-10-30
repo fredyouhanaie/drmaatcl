@@ -1,0 +1,13 @@
+build/
+drmaash
+drmaash.c
+drmaatcl-main.c
+drmaatcl-main.pdf
+drmaatcl-main.tex
+misc-nontracked/
+*.idx
+*.log
+*.o
+*.scn
+*.so
+*.toc

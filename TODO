@@ -1,0 +1,4 @@
+
+Implement the DRMAA compliance test suite in tcltest.
+Test platforms/DRMS, SGE, Slurm, Condor
+Test platforms/OS, Linux
