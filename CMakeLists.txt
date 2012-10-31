@@ -5,50 +5,80 @@ cmake_minimum_required (VERSION 2.8)
 
 project (drmaatcl C)
 
-##set (LIBHDR drmaa.h)
-##include_directories (${CMAKE_SOURCE_DIR})
+find_package (TclStub REQUIRED)
 
-set (WEBFILE ${CMAKE_SOURCE_DIR}/drmaatcl-main.w)
+# TCL_INCLUDE_PATH is supplied by TclStub package
+# DRMAA_*_DIR should be defined by user on cmake command line via -D
+include_directories (${TCL_INCLUDE_PATH} ${DRMAA_INC_DIR})
+link_directories (${DRMAA_LIB_DIR})
 
-##set (LIBSRC ${CMAKE_BINARY_DIR}/drmaatcl-main.c)
-##set_source_files_properties (${LIBSRC} PROPERTIES GENERATED TRUE)
+# The everything is generated from the cweb sources
+set (CWEB_MAIN
+	${CMAKE_SOURCE_DIR}/drmaatcl-main.w
+)
+set (CWEB_SRCS
+	${CWEB_MAIN}
+	${CMAKE_SOURCE_DIR}/boilerplate.w
+	${CMAKE_SOURCE_DIR}/drmaatcl-code.w
+	${CMAKE_SOURCE_DIR}/drmaatcl-data.w
+	${CMAKE_SOURCE_DIR}/drmaatcl-guide.w
+)
 
+# library source, generated from *.w files
+set (DRMAATCL_SRC ${CMAKE_BINARY_DIR}/drmaatcl-main.c)
+set_source_files_properties (${DRMAATCL_SRC} PROPERTIES GENERATED TRUE)
+
+# interactive shell source, generated from *.w files
+set (DRMAASH_SRC ${CMAKE_BINARY_DIR}/drmaash.c)
+set_source_files_properties (${DRMAASH_SRC} PROPERTIES GENERATED TRUE)
+
+# documentation source, generated from *.w
 set (TEXFILE ${CMAKE_BINARY_DIR}/drmaatcl-main.tex)
 set_source_files_properties (${TEXFILE} PROPERTIES GENERATED TRUE)
 
+# deliverable documentation
 set (PDFFILE ${CMAKE_BINARY_DIR}/drmaatcl-main.pdf)
 
-set_directory_properties(PROPERTIES
-	ADDITIONAL_MAKE_CLEAN_FILES "drmaatcl-main.idx;drmaatcl-main.toc;drmaatcl-main.scn;drmaatcl-main.log"
-)
+# cmake needs to know about cweb/TeX intermediate files, for clean up
+set (files_to_clean drmaatcl-main.idx drmaatcl-main.toc drmaatcl-main.scn drmaatcl-main.log)
+set_directory_properties (PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES "${files_to_clean}")
 
 #
-# our primary build target is the library
+# our primary build targets are the library and the shell
 #
-##add_library (drmaa SHARED ${LIBSRC} ${LIBHDR})
-#
-##add_custom_command (
-	##OUTPUT		${LIBSRC}
-	##COMMAND		ctangle ${WEBFILE}
-	##DEPENDS		${WEBFILE}
-##)
+set (CMAKE_SKIP_RPATH TRUE) # No RPATH please!
+add_definitions (-DUSE_TCL_STUBS)
+add_library (drmaatcl SHARED ${DRMAATCL_SRC})
+target_link_libraries (drmaatcl ${TCL_STUB_LIBRARY} drmaa)
+
+add_executable (drmaash ${DRMAASH_SRC})
+target_link_libraries (drmaash drmaatcl ${TCL_LIBRARY} drmaa)
+
+add_custom_command (
+	OUTPUT		${DRMAATCL_SRC} ${DRMAASH_SRC}
+	COMMAND		env CWEBINPUTS=${CMAKE_SOURCE_DIR} ctangle ${CWEB_MAIN}
+	DEPENDS		${CWEB_SRCS}
+)
 
 #
 # the pdf documentation involves a couple of explicit steps
 #
 add_custom_target (doc SOURCES ${PDFFILE})
 #
+# we need the additional env to accomodate out-of-source builds
+# Note, the trailing ':' is important
 add_custom_command (
 	OUTPUT		${PDFFILE}
 	MAIN_DEPENDENCY	${TEXFILE}
-	COMMAND		pdftex
+	COMMAND		env TEXINPUTS=${CMAKE_SOURCE_DIR}: pdftex
 	ARGS		${TEXFILE}
 )
 #
+# we need the additional env to accomodate out-of-source builds
 add_custom_command (
 	OUTPUT		${TEXFILE}
-	MAIN_DEPENDENCY	${WEBFILE}
-	COMMAND		cweave
-	ARGS		${WEBFILE}
+	MAIN_DEPENDENCY	${CWEB_SRCS}
+	COMMAND		env CWEBINPUTS=${CMAKE_SOURCE_DIR} cweave
+	ARGS		${CWEB_MAIN}
 )
 
