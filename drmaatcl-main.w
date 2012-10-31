@@ -33,6 +33,11 @@
 \def\author{Fred Youhanaie}
 \def\version{(Version 0.1)}
 
+\pdfinfo{
+	/Title	(\title)
+	/Author	(\author)
+}
+
 @i boilerplate.w
 
 %% \fig{file} will insert an eps/pdf picture file
