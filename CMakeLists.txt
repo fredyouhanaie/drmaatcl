@@ -5,10 +5,19 @@ cmake_minimum_required (VERSION 2.8)
 
 project (drmaatcl C)
 
+# These can be overridden on command line, or via edit_cache target
+set (DRMAA_INC_DIR "/usr/local/include"
+	CACHE PATH
+	"drmaa.h include directory."
+)
+set (DRMAA_LIB_DIR "/usr/local/lib"
+	CACHE PATH
+	"libdrmaa.so lib directory."
+)
+
 find_package (TclStub REQUIRED)
 
 # TCL_INCLUDE_PATH is supplied by TclStub package
-# DRMAA_*_DIR should be defined by user on cmake command line via -D
 include_directories (${TCL_INCLUDE_PATH} ${DRMAA_INC_DIR})
 link_directories (${DRMAA_LIB_DIR})
 
