@@ -86,7 +86,7 @@ add_custom_command (
 # we need the additional env to accomodate out-of-source builds
 add_custom_command (
 	OUTPUT		${TEXFILE}
-	MAIN_DEPENDENCY	${CWEB_SRCS}
+	DEPENDS		${CWEB_SRCS}
 	COMMAND		env CWEBINPUTS=${CMAKE_SOURCE_DIR} cweave
 	ARGS		${CWEB_MAIN}
 )

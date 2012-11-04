@@ -2,28 +2,38 @@
 %% drmaatcl-main.w
 %%	Main module of the drmaatcl cweb files.
 
-%% Copyright (c) 2012 Fred Youhanaie
+%% Copyright (c) 2009-2012, Fred Youhanaie
+%% All rights reserved.
 %%
-%% This file is part of drmaatcl.
+%% Redistribution and use in source and binary forms, with or without
+%% modification, are permitted provided that the following conditions
+%% are met:
 %%
-%% drmaatcl is free software: you can redistribute it and/or modify it
-%% under the terms of the GNU Lesser General Public License as published
-%% by the Free Software Foundation, either version 3 of the License, or
-%% (at your option) any later version.
+%%	* Redistributions of source code must retain the above copyright
+%%	  notice, this list of conditions and the following disclaimer.
 %%
-%% drmaatcl is distributed in the hope that it will be useful, but WITHOUT
-%% ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-%% FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
-%% License for more details.
+%%	* Redistributions in binary form must reproduce the above copyright
+%%	  notice, this list of conditions and the following disclaimer
+%%	  in the documentation and/or other materials provided with the
+%%	  distribution.
 %%
-%% You should have received a copy of the GNU Lesser General Public
-%% License along with drmaatcl. If not, see <http://www.gnu.org/licenses/>.
+%% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+%% "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+%% LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+%% A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+%% HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+%% SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+%% TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+%% PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+%% LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+%% NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+%% SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 \datethis
 
-%%\pagewidth=5.5in
-%%\pageheight=8.7in
-%%\fullpageheight=9in
+%%\pagewidth=6.5in % a4 width=8.5, less 2x1 in for margins
+%%\pageheight=10in
+%\fullpageheight=9in
 %%\setpage
 
 %%\parindent=0pt
@@ -33,10 +43,12 @@
 \def\author{Fred Youhanaie}
 \def\version{(Version 0.1)}
 
-\pdfinfo{
-	/Title	(\title)
-	/Author	(\author)
-}
+\ifx\pdfoutput\undefined\else
+	\pdfinfo{
+		/Title	(\title)
+		/Author	(\author)
+	}
+\fi
 
 @i boilerplate.w
 
@@ -87,23 +99,38 @@
 
 @i drmaatcl-code.w
 
-@*Licensing.
+@*Licensing of the software.
 
-\.{drmaatcl} is free software: you can redistribute it and/or modify it
-under the terms of the GNU Lesser General Public License as published
-by the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-\medskip
-
-\.{drmaatcl} is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
-License for more details.
+\.{drmaatcl} is free software, you can redistribute it and/or modify it
+under the terms of the BSD License, see
+\url{http://opensource.org/licenses/BSD-2-Clause}.
 
 \medskip
 
-You should have received a copy of the GNU Lesser General Public License
-along with \.{drmaatcl}. If not, see \url{http://www.gnu.org/licenses/}.
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+\count255=1
+\bul Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+
+\bul Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+
+\medskip
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS~IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 @*Index.
