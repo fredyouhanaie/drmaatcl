@@ -5,6 +5,7 @@ drmaatcl-main.c
 drmaatcl-main.pdf
 drmaatcl-main.tex
 misc-nontracked/
+cscope.out
 *.idx
 *.log
 *.o
