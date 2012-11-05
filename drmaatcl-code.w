@@ -88,7 +88,7 @@ int Drmaatcl_Init(Tcl_Interp *ti) {
 		dvi++;
 	}
 
-	Tcl_PkgProvide(ti, "drmaa", "1.0");
+	Tcl_PkgProvide(ti, "drmaa", "0.1");
 	return TCL_OK;
 }
 

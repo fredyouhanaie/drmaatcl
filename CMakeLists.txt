@@ -91,3 +91,10 @@ add_custom_command (
 	ARGS		${CWEB_MAIN}
 )
 
+#
+# and finally to install ...
+install (
+	TARGETS			drmaash drmaatcl
+	RUNTIME	DESTINATION	bin
+	LIBRARY	DESTINATION	lib
+)
