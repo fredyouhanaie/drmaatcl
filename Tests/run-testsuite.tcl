@@ -5,7 +5,7 @@
 #
 
 package require tcltest
-tcltest::configure -verbose p
+tcltest::configure -verbose bpstel
 
 source drmaa-testsuite.tcl
 
@@ -69,8 +69,28 @@ tcltest::test ST_EMPTY_SESSION_CONTROL {Control empty session} {
 	-returnCodes ok
 }
 
+tcltest::test ST_BULK_SUBMIT_WAIT {Submit bulk jobs and wait for completion (single-thread)} {
+	-body {ST_BULK_SUBMIT_WAIT}
+	-returnCodes ok
+}
+
 tcltest::test ST_SUBMIT_WAIT {Submit jobs and wait for completion (single-thread)} {
-	-body {ST_SUBMIT_WAIT }
+	-body {ST_SUBMIT_WAIT}
+	-returnCodes ok
+}
+
+tcltest::test  ST_BULK_SINGLESUBMIT_WAIT_INDIVIDUAL {Submit bulk/single jobs, wait individually (single-thread)} {
+	-body {ST_BULK_SINGLESUBMIT_WAIT_INDIVIDUAL}
+	-returnCodes ok
+}
+
+tcltest::test  ST_SUBMITMIXTURE_SYNC_ALL_DISPOSE {Submit bulk/single jobs, sync all, dispose (single-thread)} {
+	-body {ST_SUBMITMIXTURE_SYNC_ALL_DISPOSE}
+	-returnCodes ok
+}
+
+tcltest::test  ST_SUBMITMIXTURE_SYNC_ALL_NODISPOSE {Submit bulk/single jobs, sync all, wait individually (single-thread)} {
+	-body {ST_SUBMITMIXTURE_SYNC_ALL_NODISPOSE}
 	-returnCodes ok
 }
 
