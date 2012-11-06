@@ -950,6 +950,7 @@ int Drmaa_get_DRMAA_implementation(ClientData cd, Tcl_Interp *ti, int objc, Tcl_
 		return TCL_ERROR;
 	}
 @#
+	@<non-standard constant workaround@>;
 	char impl[DRMAA_DRMAA_IMPL_BUFFER];
 	errcode = drmaa_get_DRMAA_implementation(impl, sizeof(impl)-1,
 			errdiag, sizeof(errdiag)-1);
@@ -962,6 +963,18 @@ int Drmaa_get_DRMAA_implementation(ClientData cd, Tcl_Interp *ti, int objc, Tcl_
 	return TCL_OK;
 @#
 }
+
+@ We need this extra bit since the constant for the buffer size is not
+standardised across implementations. If neither name is defined, then
+we let the compiler complain. Of course we could have just rolled our
+own locally!
+
+@<non-standard constant workaround@>=
+#ifndef DRMAA_DRMAA_IMPL_BUFFER
+#  ifdef DRMAA_DRMAA_IMPLEMENTATION_BUFFER
+#    define DRMAA_DRMAA_IMPL_BUFFER DRMAA_DRMAA_IMPLEMENTATION_BUFFER
+#  endif    
+#endif    
 
 @ \.{drmaa\_get\_DRM\_system}
 - get DRMS identifier(s)

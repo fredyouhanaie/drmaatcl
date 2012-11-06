@@ -61,7 +61,7 @@ add_library (drmaatcl SHARED ${DRMAATCL_SRC})
 target_link_libraries (drmaatcl ${TCL_STUB_LIBRARY} drmaa)
 
 add_executable (drmaash ${DRMAASH_SRC})
-target_link_libraries (drmaash drmaatcl ${TCL_LIBRARY} drmaa)
+target_link_libraries (drmaash drmaatcl ${TCL_LIBRARY})
 
 add_custom_command (
 	OUTPUT		${DRMAATCL_SRC} ${DRMAASH_SRC}
