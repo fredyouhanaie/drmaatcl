@@ -479,7 +479,7 @@ int Drmaa_set_vector_attribute(ClientData cd, Tcl_Interp *ti, int objc, Tcl_Obj 
 
 @*1Job Submission Commands.
 
-@ \.{drmaa\_run\_bulk\_job} {\sl jt start end incr}
+@ \.{drmaa\_run\_bulk\_jobs} {\sl jt start end incr}
 
 submit a bulk job and return the list of job names.
 

@@ -250,7 +250,7 @@ are listed below in alphabetical order.
 created and the symbolic job template handle is returned.}
 
 \cmdref{drmaa::drmaa\_control}{jobid action}{{\sl jobid} is as returned
-by {\tt drmaa\_run\_job} or {\tt drmaa\_run\_bulk} commands.
+by {\tt drmaa\_run\_job} or {\tt drmaa\_run\_bulk\_jobs} commands.
 {\sl action} is one of \.{SUSPEND}, \.{RESUME}, \.{HOLD}, \.{RELEASE}
 or \.{TERMINATE}. Nothing is returned, unless error.}
 
