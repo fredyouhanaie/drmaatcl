@@ -94,3 +94,13 @@ tcltest::test  ST_SUBMITMIXTURE_SYNC_ALL_NODISPOSE {Submit bulk/single jobs, syn
 	-returnCodes ok
 }
 
+tcltest::test  ST_SUBMITMIXTURE_SYNC_ALLIDS_DISPOSE {Submit bulk/single jobs, sync all ids, dispose (single-thread)} {
+	-body {ST_SUBMITMIXTURE_SYNC_ALLIDS_DISPOSE}
+	-returnCodes ok
+}
+
+tcltest::test  ST_SUBMITMIXTURE_SYNC_ALLIDS_NODISPOSE {Submit bulk/single jobs, sync all ids, wait individually (single-thread)} {
+	-body {ST_SUBMITMIXTURE_SYNC_ALLIDS_NODISPOSE}
+	-returnCodes ok
+}
+

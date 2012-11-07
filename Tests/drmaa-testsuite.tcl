@@ -31,7 +31,7 @@ proc error_report {result options} {
 	puts stderr "==================="
 }
 
-proc create_sleeper_job_template {seconds as_bulk_job in_hold} {
+proc create_sleeper_job_template {seconds in_hold} {
 	global sleeper_job
 	# catch the errors, and pass them to the caller
 	if [catch {	set jt [drmaa::drmaa_allocate_job_template]
@@ -66,12 +66,12 @@ proc wait_all_st_jobs {njobs} {
 }
 
 # submit nbulks of jchunk jobs
-proc submit_bulk_sleeper_jobs {seconds bulk in_hold nbulk jchunk} {
+proc submit_bulk_sleeper_jobs {seconds in_hold nbulk jchunk} {
 	set all_jobids {}
-	if [catch {	set jt [create_sleeper_job_template $seconds $bulk $in_hold]
+	if [catch {	set jt [create_sleeper_job_template $seconds $in_hold]
 			for {set i 0} {$i<$nbulk} {incr i} {
 				set jobids [drmaa::drmaa_run_bulk_jobs $jt 1 $jchunk 1]
-				set all_jobids [concat $all_jobids $jobids]
+				set all_jobids [concat $all_jobids " " $jobids]
 				puts "\tSubmitted $jchunk bulk jobs with job ids: $jobids"
 			}
 			drmaa::drmaa_delete_job_template $jt} result options] {
@@ -81,9 +81,9 @@ proc submit_bulk_sleeper_jobs {seconds bulk in_hold nbulk jchunk} {
 }
 
 # submit individual sleeper job(s)
-proc submit_sleeper_jobs {seconds bulk in_hold njobs} {
+proc submit_sleeper_jobs {seconds in_hold njobs} {
 	set all_jobids {}
-	if [catch {	set jt [create_sleeper_job_template $seconds $bulk $in_hold]
+	if [catch {	set jt [create_sleeper_job_template $seconds $in_hold]
 			for {set i 0} {$i<$njobs} {incr i} {
 				set jobid [drmaa::drmaa_run_job $jt]
 				lappend all_jobids $jobid
@@ -94,7 +94,6 @@ proc submit_sleeper_jobs {seconds bulk in_hold njobs} {
 	}
 	return $all_jobids
 }
-
 
 # wait for individual jobs
 proc wait_individual_jobs {all_jobids} {
@@ -141,7 +140,7 @@ proc ST_MULT_INIT {} {
 			return -code error
 		}
 	} else {
-		return -code error -errorinfo "second drmaa_init succeeded!"
+		return -code error "second drmaa_init succeeded!"
 	}
 	# exit
 	if [catch {drmaa::drmaa_exit} result options] {
@@ -353,11 +352,11 @@ proc ST_SUBMIT_WAIT {} {
 ##	- wait for jobend
 	global JOB_CHUNK
 	if [catch {	drmaa::drmaa_init
-			submit_sleeper_jobs 5 0 0 $JOB_CHUNK
+			submit_sleeper_jobs 5 0 $JOB_CHUNK
 			wait_all_st_jobs $JOB_CHUNK
 			drmaa::drmaa_exit
 			} result options] {
-		error_report $result $::errorInfo
+		error_report $result $options
 		return -code error
 	}
 	return
@@ -370,10 +369,11 @@ proc ST_BULK_SUBMIT_WAIT {} {
 ##	- then drmaa_exit() is called
 	global NBULKS JOB_CHUNK
 	if [catch {	drmaa::drmaa_init
-			submit_bulk_sleeper_jobs 5 1 0 $NBULKS $JOB_CHUNK
+			submit_bulk_sleeper_jobs 5 0 $NBULKS $JOB_CHUNK
 			wait_all_st_jobs [expr $NBULKS*$JOB_CHUNK]
 			drmaa::drmaa_exit} result options] {
 		error_report $result $options
+		return -code error $options
 	}
 	return
 }
@@ -387,8 +387,8 @@ proc ST_BULK_SINGLESUBMIT_WAIT_INDIVIDUAL {} {
 	global NBULKS JOB_CHUNK max_wait
 	set all_jobids {}
 	if [catch {	drmaa::drmaa_init
-			set all_jobids [concat $all_jobids [submit_bulk_sleeper_jobs 5 1 0 $NBULKS $JOB_CHUNK]]
-			set all_jobids [concat $all_jobids [submit_sleeper_jobs 5 0 0 $JOB_CHUNK]]
+			set all_jobids [concat $all_jobids [submit_bulk_sleeper_jobs 5 0 $NBULKS $JOB_CHUNK]]
+			set all_jobids [concat $all_jobids [submit_sleeper_jobs 5 0 $JOB_CHUNK]]
 			wait_individual_jobs $all_jobids
 			drmaa::drmaa_exit} result options] {
 		error_report $result $options
@@ -407,13 +407,14 @@ proc ST_SUBMITMIXTURE_SYNC_ALL_DISPOSE {} {
 ##	- then drmaa_exit() is called
 	global NBULKS JOB_CHUNK max_wait ALL_JOBS
 	if [catch {	drmaa::drmaa_init
-			submit_bulk_sleeper_jobs 5 1 0 $NBULKS $JOB_CHUNK
-			submit_sleeper_jobs 5 0 0 $JOB_CHUNK
+			submit_bulk_sleeper_jobs 5 0 $NBULKS $JOB_CHUNK
+			submit_sleeper_jobs 5 0 $JOB_CHUNK
 			puts "\tsynchronizing with all jobs."
 			drmaa::drmaa_synchronize $max_wait 1 $ALL_JOBS
 			puts "\tsynchronized with all jobs."
 			drmaa::drmaa_exit} result options] {
 		error_report $result $options
+		return -code error $options
 	}
 	return
 }
@@ -430,28 +431,45 @@ proc ST_SUBMITMIXTURE_SYNC_ALL_NODISPOSE {} {
 	global NBULKS JOB_CHUNK max_wait ALL_JOBS
 	set all_jobids {}
 	if [catch {	drmaa::drmaa_init
-			set bjobs [submit_bulk_sleeper_jobs 5 1 0 $NBULKS $JOB_CHUNK]
-			set ijobs [submit_sleeper_jobs 5 0 0 $JOB_CHUNK]
-			set all_jobids [concat $bjobs $ijobs]
+			set bjobs [submit_bulk_sleeper_jobs 5 0 $NBULKS $JOB_CHUNK]
+			set ijobs [submit_sleeper_jobs 5 0 $JOB_CHUNK]
+			set all_jobids [concat $bjobs " " $ijobs]
 			puts "\tsynchronizing with all jobs."
 			drmaa::drmaa_synchronize $max_wait 1 $ALL_JOBS
 			puts "\tsynchronized with all jobs."
 			wait_individual_jobs $all_jobids
 			drmaa::drmaa_exit} result options] {
 		error_report $result $options
+		return -code error $options
 	}
 	return
 }
 
-proc ST_SUBMITMIXTURE_SYNC_ALLIDS_DISPOSE {x} {}
+proc ST_SUBMITMIXTURE_SYNC_ALLIDS_DISPOSE {} {
 ##	ST_SUBMITMIXTURE_SYNC_ALLIDS_DISPOSE,
 ##	- drmaa_init() is called
 ##	- submit a mixture of single and bulk jobs
 ##	- do drmaa_synchronize(all_jobids, dispose)
 ##	to wait for all jobs to finish
 ##	- then drmaa_exit() is called
+	global NBULKS JOB_CHUNK max_wait ALL_JOBS
+	set all_jobids {}
+	if [catch {	drmaa::drmaa_init
+			set bjobs [submit_bulk_sleeper_jobs 5 0 $NBULKS $JOB_CHUNK]
+			set ijobs [submit_sleeper_jobs 5 0 $JOB_CHUNK]
+			set all_jobids [concat $bjobs " " $ijobs]
+			puts "\tsynchronizing: $all_jobids"
+			drmaa::drmaa_synchronize $max_wait 1 {*}$all_jobids
+			puts "\tsynchronized with all jobs."
+			drmaa::drmaa_exit} result options] {
+		error_report $result $options
+		return -code error $options
+	}
+	return
 
-proc ST_SUBMITMIXTURE_SYNC_ALLIDS_NODISPOSE {x} {}
+}
+
+proc ST_SUBMITMIXTURE_SYNC_ALLIDS_NODISPOSE {} {
 ##	ST_SUBMITMIXTURE_SYNC_ALLIDS_NODISPOSE,
 ##	- drmaa_init() is called
 ##	- submit a mixture of single and bulk jobs
@@ -460,6 +478,24 @@ proc ST_SUBMITMIXTURE_SYNC_ALLIDS_NODISPOSE {x} {}
 ##	- do drmaa_wait(DRMAA_JOB_IDS_SESSION_ANY) until
 ##	DRMAA_ERRNO_INVALID_JOB to reap all jobs
 ##	- then drmaa_exit() is called
+	global NBULKS JOB_CHUNK max_wait ALL_JOBS
+	set all_jobids {}
+	if [catch {	drmaa::drmaa_init
+			set bjobs [submit_bulk_sleeper_jobs 5 0 $NBULKS $JOB_CHUNK]
+			set ijobs [submit_sleeper_jobs 5 0 $JOB_CHUNK]
+			set all_jobids [concat $bjobs " " $ijobs]
+			puts "\tsynchronizing: $all_jobids"
+			drmaa::drmaa_synchronize $max_wait 0 {*}$all_jobids
+			puts "\tsynchronized with all jobs."
+			wait_individual_jobs $all_jobids
+			drmaa::drmaa_exit} result options] {
+		error_report $result $options
+		return -code error $options
+	}
+	return
+
+
+}
 
 proc ST_EXIT_STATUS {x} {}
 ##	ST_EXIT_STATUS,

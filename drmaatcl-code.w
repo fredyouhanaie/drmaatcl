@@ -655,8 +655,8 @@ int Drmaa_synchronize(ClientData cd, Tcl_Interp *ti, int objc, Tcl_Obj *CONST ob
 		return TCL_ERROR;
 	}
 @#
-	const char **jobids;
-	jobids = (const char **)Tcl_AttemptAlloc((objc-3+1)*sizeof(char **));
+	char **jobids;
+	jobids = (char **)Tcl_AttemptAlloc((objc-3+1)*sizeof(char **));
 	if (jobids == NULL) {
 		errcode = DRMAA_ERRNO_NO_MEMORY;
 		strncpy(errdiag, "Too many jobids", sizeof(errdiag)-1);
@@ -669,7 +669,7 @@ int Drmaa_synchronize(ClientData cd, Tcl_Interp *ti, int objc, Tcl_Obj *CONST ob
 	}
 	jobids[objc-3] = NULL;
 @#
-	errcode = drmaa_synchronize(jobids, timeout, dispose, errdiag, sizeof(errdiag)-1);
+	errcode = drmaa_synchronize((const char **)jobids, timeout, dispose, errdiag, sizeof(errdiag)-1);
 	Tcl_Free((char *)jobids);
 	if (errcode != DRMAA_ERRNO_SUCCESS) {
 		Tcl_ResetResult(ti);
