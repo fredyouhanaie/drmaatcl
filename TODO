@@ -2,3 +2,10 @@
 Implement the DRMAA compliance test suite in tcltest.
 Test platforms/DRMS, SGE, Slurm, Condor
 Test platforms/OS, Linux
+
+Drmaa_get_attribute_names / Drmaa_get_vector_attribute_names
+	check for errors when iterating over attribute list
+		SUCCESS - continue iterating
+		NO_MORE_ELEMENTS - stop
+		anything else - report error
+	compare the number of attributes from iteration with drmaa_get_num_*
