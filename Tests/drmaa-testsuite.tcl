@@ -196,10 +196,6 @@ proc wait_n_jobs {njobs} {
 }
 
 proc ST_MULT_INIT {} {
-##	ST_MULT_INIT,
-##	- drmaa_init() is called multiple times
-##	- first time it must succeed - second time it must fail
-##	- then drmaa_exit() is called
 	# init - should succeed
 	if [catch {drmaa::drmaa_init} result options] {
 		error_report $result $options
@@ -223,10 +219,6 @@ proc ST_MULT_INIT {} {
 }
 
 proc ST_MULT_EXIT {} {
-##	ST_MULT_EXIT,
-##	- drmaa_init() is called
-##	- then drmaa_exit() is called multiple times
-##	- first time it must succeed - second time it must fail
 	# init + exit
 	if [catch {drmaa::drmaa_init; drmaa::drmaa_exit} result options] {
 		error_report $result $options
@@ -244,11 +236,6 @@ proc ST_MULT_EXIT {} {
 }
 
 proc ST_SUPPORTED_ATTR {} {
-##	ST_SUPPORTED_ATTR,
-##	- drmaa_init() is called
-##	- drmaa_get_attribute_names() is called
-##	- the names of all supported non vector attributes are printed
-##	- then drmaa_exit() is called
 	if [catch {	drmaa::drmaa_init
 			set attrlist [drmaa::drmaa_get_attribute_names]
 			drmaa::drmaa_exit} result options] {
@@ -260,11 +247,6 @@ proc ST_SUPPORTED_ATTR {} {
 }
 
 proc ST_SUPPORTED_VATTR {} {
-##	ST_SUPPORTED_VATTR,
-##	- drmaa_init() is called
-##	- drmaa_get_vector_attribute_names() is called
-##	- the names of all supported vector attributes are printed
-##	- then drmaa_exit() is called
 	if [catch {	drmaa::drmaa_init
 			set attrlist [drmaa::drmaa_get_vector_attribute_names]
 			drmaa::drmaa_exit} result options] {
@@ -276,9 +258,6 @@ proc ST_SUPPORTED_VATTR {} {
 }
 
 proc ST_VERSION {} {
-##	ST_VERSION,
-##	- drmaa_version() is called
-##	- version information is printed
 	if [catch {set maj_min [drmaa::drmaa_version]} result options] {
 		error_report $result $options
 		return -code error
@@ -288,13 +267,6 @@ proc ST_VERSION {} {
 }
 
 proc ST_DRM_SYSTEM {} {
-##	ST_DRM_SYSTEM,
-##	- drmaa_get_DRM_system() is called
-##	- the contact string is printed
-##	- drmaa_init() is called
-##	- drmaa_get_DRM_system() is called
-##	- the DRM system name is printed
-##	- then drmaa_exit() is called
 	if [catch {	set DRM_system [drmaa::drmaa_get_DRM_system]
 			puts "\tdrmaa_get_DRM_system returned \"$DRM_system\" before init."
 			drmaa::drmaa_init
@@ -308,13 +280,6 @@ proc ST_DRM_SYSTEM {} {
 }
 
 proc ST_DRMAA_IMPL {} {
-##	ST_DRMAA_IMPL,
-##	- drmaa_get_DRM_system() is called
-##	- the contact string is printed
-##	- drmaa_init() is called
-##	- drmaa_get_DRMAA_implementation() is called
-##	- the DRMAA implemention name is printed
-##	- then drmaa_exit() is called
 	if [catch {	set DRMAA_impl [drmaa::drmaa_get_DRMAA_implementation]
 			puts "\tdrmaa_get_DRMAA_implementation returned \"$DRMAA_impl\" before init."
 			drmaa::drmaa_init
@@ -328,13 +293,6 @@ proc ST_DRMAA_IMPL {} {
 }
 
 proc ST_CONTACT {} {
-##	ST_CONTACT,
-##	- drmaa_get_contact() is called
-##	- the contact string is printed
-##	- drmaa_init() is called
-##	- drmaa_get_contact() is called
-##	- the contact string is printed
-##	- then drmaa_exit() is called
 	if [catch {	set contact [drmaa::drmaa_get_contact]
 			puts "\tdrmaa_get_contact returned \"$contact\" before init."
 			drmaa::drmaa_init
@@ -348,10 +306,6 @@ proc ST_CONTACT {} {
 }
 
 proc ST_EMPTY_SESSION_WAIT {} {
-##	ST_EMPTY_SESSION_WAIT,
-##	- drmaa_init() is called
-##	- drmaa_wait() must return DRMAA_ERRNO_INVALID_JOB
-##	- then drmaa_exit() is called
 	global max_wait
 	if [catch {drmaa::drmaa_init} result options] {
 		error_report $result $options
@@ -374,10 +328,6 @@ proc ST_EMPTY_SESSION_WAIT {} {
 }
 
 proc ST_EMPTY_SESSION_SYNCHRONIZE_DISPOSE {} {
-##	ST_EMPTY_SESSION_SYNCHRONIZE_DISPOSE,
-##	- drmaa_init() is called
-##	- drmaa_synchronize(DRMAA_JOB_IDS_SESSION_ALL, dispose=true) must return DRMAA_ERRNO_SUCCESS
-##	- then drmaa_exit() is called
 	global max_wait
 	if [catch {	drmaa::drmaa_init
 			drmaa::drmaa_synchronize $max_wait 1 $drmaa::DRMAA_JOB_IDS_SESSION_ALL
@@ -389,10 +339,6 @@ proc ST_EMPTY_SESSION_SYNCHRONIZE_DISPOSE {} {
 }
 
 proc ST_EMPTY_SESSION_SYNCHRONIZE_NODISPOSE {} {
-##	ST_EMPTY_SESSION_SYNCHRONIZE_NODISPOSE,
-##	- drmaa_init() is called
-##	- drmaa_synchronize(DRMAA_JOB_IDS_SESSION_ALL, dispose=false) must return DRMAA_ERRNO_SUCCESS
-##	- then drmaa_exit() is called
 	global max_wait
 	if [catch {	drmaa::drmaa_init
 			drmaa::drmaa_synchronize $max_wait 0 $drmaa::DRMAA_JOB_IDS_SESSION_ALL
@@ -404,10 +350,6 @@ proc ST_EMPTY_SESSION_SYNCHRONIZE_NODISPOSE {} {
 }
 
 proc ST_EMPTY_SESSION_CONTROL {action} {
-##	ST_EMPTY_SESSION_CONTROL,
-##	- drmaa_init() is called
-##	- drmaa_control(DRMAA_JOB_IDS_SESSION_ALL, <passed control operation>) must return DRMAA_ERRNO_SUCCESS
-##	- then drmaa_exit() is called
 	if [catch {	drmaa::drmaa_init
 			drmaa::drmaa_control $drmaa::DRMAA_JOB_IDS_SESSION_ALL $action
 			drmaa::drmaa_exit} result options] {
@@ -418,10 +360,6 @@ proc ST_EMPTY_SESSION_CONTROL {action} {
 }
 
 proc ST_SUBMIT_WAIT {} {
-##	ST_SUBMIT_WAIT,
-##	- one thread
-##	- submit jobs
-##	- wait for jobend
 	global JOB_CHUNK
 	if [catch {	drmaa::drmaa_init
 			submit_sleeper_jobs 5 0 $JOB_CHUNK
@@ -435,10 +373,6 @@ proc ST_SUBMIT_WAIT {} {
 }
 
 proc ST_BULK_SUBMIT_WAIT {} {
-##	ST_BULK_SUBMIT_WAIT,
-##	- drmaa_init() is called
-##	- a bulk job is submitted and waited
-##	- then drmaa_exit() is called
 	global NBULKS JOB_CHUNK
 	if [catch {	drmaa::drmaa_init
 			submit_bulk_sleeper_jobs 5 0 $NBULKS $JOB_CHUNK
@@ -451,11 +385,6 @@ proc ST_BULK_SUBMIT_WAIT {} {
 }
 
 proc ST_BULK_SINGLESUBMIT_WAIT_INDIVIDUAL {} {
-##	ST_BULK_SINGLESUBMIT_WAIT_INDIVIDUAL,
-##	- drmaa_init() is called
-##	- bulk and sequential jobs are submitted
-##	- all jobs are waited individually
-##	- then drmaa_exit() is called
 	global NBULKS JOB_CHUNK max_wait
 	set all_jobids {}
 	if [catch {	drmaa::drmaa_init
@@ -471,12 +400,6 @@ proc ST_BULK_SINGLESUBMIT_WAIT_INDIVIDUAL {} {
 }
 
 proc ST_SUBMITMIXTURE_SYNC_ALL_DISPOSE {} {
-##	ST_SUBMITMIXTURE_SYNC_ALL_DISPOSE,
-##	- drmaa_init() is called
-##	- submit a mixture of single and bulk jobs
-##	- do drmaa_synchronize(DRMAA_JOB_IDS_SESSION_ALL, dispose)
-##	to wait for all jobs to finish
-##	- then drmaa_exit() is called
 	global NBULKS JOB_CHUNK max_wait ALL_JOBS
 	if [catch {	drmaa::drmaa_init
 			submit_bulk_sleeper_jobs 5 0 $NBULKS $JOB_CHUNK
@@ -492,14 +415,6 @@ proc ST_SUBMITMIXTURE_SYNC_ALL_DISPOSE {} {
 }
 
 proc ST_SUBMITMIXTURE_SYNC_ALL_NODISPOSE {} {
-##	ST_SUBMITMIXTURE_SYNC_ALL_NODISPOSE,
-##	- drmaa_init() is called
-##	- submit a mixture of single and bulk jobs
-##	- do drmaa_synchronize(DRMAA_JOB_IDS_SESSION_ALL, no-dispose)
-##	to wait for all jobs to finish
-##	- do drmaa_wait(DRMAA_JOB_IDS_SESSION_ANY) until
-##	DRMAA_ERRNO_INVALID_JOB to reap all jobs
-##	- then drmaa_exit() is called
 	global NBULKS JOB_CHUNK max_wait ALL_JOBS
 	set all_jobids {}
 	if [catch {	drmaa::drmaa_init
@@ -518,12 +433,6 @@ proc ST_SUBMITMIXTURE_SYNC_ALL_NODISPOSE {} {
 }
 
 proc ST_SUBMITMIXTURE_SYNC_ALLIDS_DISPOSE {} {
-##	ST_SUBMITMIXTURE_SYNC_ALLIDS_DISPOSE,
-##	- drmaa_init() is called
-##	- submit a mixture of single and bulk jobs
-##	- do drmaa_synchronize(all_jobids, dispose)
-##	to wait for all jobs to finish
-##	- then drmaa_exit() is called
 	global NBULKS JOB_CHUNK max_wait ALL_JOBS
 	set all_jobids {}
 	if [catch {	drmaa::drmaa_init
@@ -542,14 +451,6 @@ proc ST_SUBMITMIXTURE_SYNC_ALLIDS_DISPOSE {} {
 }
 
 proc ST_SUBMITMIXTURE_SYNC_ALLIDS_NODISPOSE {} {
-##	ST_SUBMITMIXTURE_SYNC_ALLIDS_NODISPOSE,
-##	- drmaa_init() is called
-##	- submit a mixture of single and bulk jobs
-##	- do drmaa_synchronize(all_jobids, no-dispose)
-##	to wait for all jobs to finish
-##	- do drmaa_wait(DRMAA_JOB_IDS_SESSION_ANY) until
-##	DRMAA_ERRNO_INVALID_JOB to reap all jobs
-##	- then drmaa_exit() is called
 	global NBULKS JOB_CHUNK max_wait ALL_JOBS
 	set all_jobids {}
 	if [catch {	drmaa::drmaa_init
@@ -570,13 +471,6 @@ proc ST_SUBMITMIXTURE_SYNC_ALLIDS_NODISPOSE {} {
 }
 
 proc ST_EXIT_STATUS {} {
-##	ST_EXIT_STATUS,
-##	- drmaa_init() is called
-##	- 255 job are submitted
-##	- job i returns i as exit status (8 bit)
-##	- drmaa_wait() verifies each job returned the
-##	correct exit status
-##	- then drmaa_exit() is called
 	global max_wait
 	set alljobs {}
 	if [catch {	drmaa::drmaa_init
@@ -619,12 +513,6 @@ proc ST_EXIT_STATUS {} {
 }
 
 proc ST_SUBMIT_KILL_SIG {} {
-##	ST_SUBMIT_KILL_SIG,
-##	- drmaa_init() is called
-##	- one job is submitted
-##	- job is killed via SIGKILL and SIGINT
-##	- drmaa_wtermsig() is used to validate if the correct termination signals where reported
-##	- drmaa_exit_is_called
 	global kill_job max_wait
 	array set sigList {
 		 1	SIGHUP
@@ -673,14 +561,6 @@ proc ST_SUBMIT_KILL_SIG {} {
 }
 
 proc ST_INPUT_FILE_FAILURE {} {
-##	ST_INPUT_FILE_FAILURE,
-##	- drmaa_init() is called
-##	- a job is submitted with input/output/error path specification
-##	that must cause the job to fail
-##	- use drmaa_synchronize() to ensure job was started
-##	- drmaa_job_ps() must return DRMAA_PS_FAILED
-##	- drmaa_wait() must report drmaa_wifaborted() -> true
-##	- then drmaa_exit() is called
 	global sleeper_job max_wait ALL_JOBS
 	if [catch {	drmaa::drmaa_init
 			set jt [create_sleeper_job_template 5 0]
@@ -701,14 +581,6 @@ proc ST_INPUT_FILE_FAILURE {} {
 }
 
 proc ST_OUTPUT_FILE_FAILURE {} {
-##	ST_OUTPUT_FILE_FAILURE,
-##	- drmaa_init() is called
-##	- a job is submitted with input/output/error path specification
-##	that must cause the job to fail
-##	- use drmaa_synchronize() to ensure job was started
-##	- drmaa_job_ps() must return DRMAA_PS_FAILED
-##	- drmaa_wait() must report drmaa_wifaborted() -> true
-##	- then drmaa_exit() is called
 	global sleeper_job max_wait ALL_JOBS
 	if [catch {	drmaa::drmaa_init
 			set jt [create_sleeper_job_template 5 0]
@@ -730,14 +602,6 @@ proc ST_OUTPUT_FILE_FAILURE {} {
 }
 
 proc ST_ERROR_FILE_FAILURE {} {
-##	ST_ERROR_FILE_FAILURE,
-##	- drmaa_init() is called
-##	- a job is submitted with input/output/error path specification
-##	that must cause the job to fail
-##	- use drmaa_synchronize() to ensure job was started
-##	- drmaa_job_ps() must return DRMAA_PS_FAILED
-##	- drmaa_wait() must report drmaa_wifaborted() -> true
-##	- then drmaa_exit() is called
 	global sleeper_job max_wait ALL_JOBS
 	if [catch {	drmaa::drmaa_init
 			set jt [create_sleeper_job_template 5 0]
@@ -759,14 +623,6 @@ proc ST_ERROR_FILE_FAILURE {} {
 }
 
 proc ST_SUBMIT_IN_HOLD_RELEASE {} {
-##	ST_SUBMIT_IN_HOLD_RELEASE,
-##	- drmaa_init() is called
-##	- a job is submitted with a user hold
-##	- use drmaa_job_ps() to verify user hold state
-##	- hold state is released using drmaa_control()
-##	- the job is waited
-##	- then drmaa_exit() is called
-##	(still requires manual testing)
 	global max_wait ALL_JOBS
 	if [catch {	drmaa::drmaa_init
 			set jt [create_sleeper_job_template 5 1]
@@ -789,162 +645,44 @@ proc ST_SUBMIT_IN_HOLD_RELEASE {} {
 }
 
 proc ST_SUBMIT_IN_HOLD_DELETE {x} {}
-##	ST_SUBMIT_IN_HOLD_DELETE,
-##	- drmaa_init() is called
-##	- a job is submitted with a user hold
-##	- use drmaa_job_ps() to verify user hold state
-##	- job is terminated using drmaa_control()
-##	- the job is waited and it is checked if wifaborted is true
-##	- then drmaa_exit() is called
-##	(still requires manual testing)
 
 proc ST_BULK_SUBMIT_IN_HOLD_SESSION_RELEASE {x} {}
-##	ST_BULK_SUBMIT_IN_HOLD_SESSION_RELEASE,
-##	- drmaa_init() is called
-##	- a bulk job is submitted with a user hold
-##	- hold state is released for the session using drmaa_control()
-##	- the job ids are waited
-##	- then drmaa_exit() is called
-##	(still requires manual testing)
 
 proc ST_BULK_SUBMIT_IN_HOLD_SINGLE_RELEASE {x} {}
-##	ST_BULK_SUBMIT_IN_HOLD_SINGLE_RELEASE,
-##	- drmaa_init() is called
-##	- a bulk job is submitted with a user hold
-##	- hold state is released separately for each task using drmaa_control()
-##	- the job ids are waited
-##	- then drmaa_exit() is called
-##	(still requires manual testing)
 
 proc ST_BULK_SUBMIT_IN_HOLD_SESSION_DELETE {x} {}
-##	ST_BULK_SUBMIT_IN_HOLD_SESSION_DELETE,
-##	- drmaa_init() is called
-##	- a bulk job is submitted with a user hold
-##	- use drmaa_job_ps() to verify user hold state
-##	- all session jobs are terminated using drmaa_control()
-##	- the job ids are waited
-##	- then drmaa_exit() is called
-##	(still requires manual testing)
 
 proc ST_BULK_SUBMIT_IN_HOLD_SINGLE_DELETE {x} {}
-##	ST_BULK_SUBMIT_IN_HOLD_SINGLE_DELETE,
-##	- drmaa_init() is called
-##	- a bulk job is submitted with a user hold
-##	- use drmaa_job_ps() to verify user hold state
-##	- all session jobs are terminated using drmaa_control()
-##	- the job ids are waited
-##	- then drmaa_exit() is called
-##	(still requires manual testing)
 
 proc ST_SUBMIT_POLLING_WAIT_TIMEOUT {x} {}
-##	ST_SUBMIT_POLLING_WAIT_TIMEOUT,
-##	- drmaa_init() is called
-##	- a single job is submitted
-##	- repeatedly drmaa_wait() with a timeout is used until job is finished
-##	- then drmaa_exit() is called
 
 proc ST_SUBMIT_POLLING_WAIT_ZEROTIMEOUT {x} {}
-##	ST_SUBMIT_POLLING_WAIT_ZEROTIMEOUT,
-##	- drmaa_init() is called
-##	- a single job is submitted
-##	- repeatedly do drmaa_wait(DRMAA_TIMEOUT_NO_WAIT) + sleep() until job is finished
-##	- then drmaa_exit() is called
 
 proc ST_SUBMIT_POLLING_SYNCHRONIZE_TIMEOUT {x} {}
-##	ST_SUBMIT_POLLING_SYNCHRONIZE_TIMEOUT,
-##	- drmaa_init() is called
-##	- a single job is submitted
-##	- repeatedly drmaa_synchronize() with a timeout is used until job is finished
-##	- then drmaa_exit() is called
 
 proc ST_SUBMIT_POLLING_SYNCHRONIZE_ZEROTIMEOUT {x} {}
-##	ST_SUBMIT_POLLING_SYNCHRONIZE_ZEROTIMEOUT,
-##	- drmaa_init() is called
-##	- a single job is submitted
-##	- repeatedly do drmaa_synchronize(DRMAA_TIMEOUT_NO_WAIT) + sleep() until job is finished
-##	- then drmaa_exit() is called
 
 proc ST_ATTRIBUTE_CHANGE {} {}
-##	ST_ATTRIBUTE_CHANGE,
-##	- all attributes a written with different values for two times
-##	- check if the JT is correct afterwards
 
 proc ST_SUBMIT_SUSPEND_RESUME_WAIT {x} {}
-##	ST_SUBMIT_SUSPEND_RESUME_WAIT,
-##	- drmaa_init() is called
-##	- a single job is submitted
-##	- drmaa_job_ps() is used to actively wait until job is running
-##	- drmaa_control() is used to suspend the job
-##	- drmaa_job_ps() is used to verify job was suspended
-##	- drmaa_control() is used to resume the job
-##	- drmaa_job_ps() is used to verify job was resumed
-##	- drmaa_wait() is used to wait for the jobs regular end
-##	- then drmaa_exit() is called
 
 proc ST_USAGE_CHECK {x} {}
-##	ST_USAGE_CHECK,
-##	- one thread
-##	- submit jobs
-##	- wait for jobend
-##	- print job usage
 
 proc ST_UNSUPPORTED_ATTR {} {}
-##	// ST_UNSUPPORTED_ATTR,
-##	- drmaa_init() is called
-##	- drmaa_set_attribute() is called for an invalid attribute
-##	- then drmaa_exit() is called
 
 proc ST_UNSUPPORTED_VATTR {} {}
-##	// ST_UNSUPPORTED_VATTR,
-##	- drmaa_init() is called
-##	- drmaa_set_vector_attribute() is called for an invalid attribute
-##	- then drmaa_exit() is called
 
 proc MT_SUBMIT_WAIT {x} {}
-##	MT_SUBMIT_WAIT,
-##	- multiple submission threads
-##	- wait is done by main thread
 
 proc MT_SUBMIT_BEFORE_INIT_WAIT {x} {}
-##	MT_SUBMIT_BEFORE_INIT_WAIT,
-##	- no drmaa_init() was called
-##	- multiple threads try to submit but fail
-##	- when drmaa_init() is called by main thread
-##	submission proceed
-##	- wait is done by main thread
 
 proc MT_EXIT_DURING_SUBMIT {x} {}
-##	MT_EXIT_DURING_SUBMIT,
-##	- drmaa_init() is called
-##	- multiple submission threads submitting (delayed) a series
-##	of jobs
-##	- during submission main thread does drmaa_exit()
 
 proc MT_SUBMIT_MT_WAIT {x} {}
-##	MT_SUBMIT_MT_WAIT,
-##	- drmaa_init() is called
-##	- multiple submission threads submit jobs and wait these jobs
-##	- when all threads are finished main thread calls drmaa_exit()
 
 proc MT_EXIT_DURING_SUBMIT_OR_WAIT {x} {}
-##	MT_EXIT_DURING_SUBMIT_OR_WAIT,
-##	- drmaa_init() is called
-##	- multiple submission threads submit jobs and wait these jobs
-##	- while submission threads are waiting their jobs the main
-##	thread calls drmaa_exit()
 
 proc ST_GET_NUM_JOBIDS {x} {}
-##	ST_GET_NUM_JOBIDS,
-##	- drmaa_init() ist called
-##	- bulk job is submitted
-##	- functionality of drmaa_get_num_jobids is tested
-##	- drmaa_exit is called
 
 proc ST_BULK_SUBMIT_INCRPH {x} {}
-##	ST_BULK_SUBMIT_INCRPH
-##	- drmaa_init() ist called
-##	- bulk job is submitted
-##	- drmaa_wd_ph and drmaa_incr_ph placeholders are used in output file name
-##	- existence of files is checked
-##	- drmaa_exit is called
 
