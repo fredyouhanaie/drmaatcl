@@ -6,19 +6,22 @@ set JOB_CHUNK	2
 set NTHREADS	3
 set NBULKS	3
 
-set sleeper_job "/bin/sleep"	;# should really come from command line
+# TODO: should really come from command line
+set sleeper_job	"/bin/sleep"
+set exit_job	"/usr/local/bin/test_exit_helper"
+set kill_job	"/usr/local/bin/test_kill_helper"
 
 # DRMAA_TIMEOUT_WAIT_FOREVER is anyway useless in a test suite
 # we assume some local setting, fast enough for the single job runs
 set max_wait 3600
 
 # shorter names to help the reader
-set ANY_JOB	$drmaa::DRMAA_JOB_IDS_SESSION_ANY 
+set ANY_JOB	$drmaa::DRMAA_JOB_IDS_SESSION_ANY
 set ALL_JOBS	$drmaa::DRMAA_JOB_IDS_SESSION_ALL
 
 # Tcl does not have a common garden (POSIX) sleep command
 proc sleep {seconds} {
-	after [expr 1000*seconds]
+	after [expr 1000*$seconds]
 }
 
 # error report for investigation by user
@@ -41,7 +44,21 @@ proc create_sleeper_job_template {seconds in_hold} {
 			if $in_hold {
 				drmaa::drmaa_set_attribute $jt drmaa_js_state $drmaa::DRMAA_SUBMISSION_STATE_HOLD
 			} } result options] {
-		return $options
+		return -code error $options
+	}
+	return $jt
+}
+
+proc create_exit_job_template {} {
+	global exit_job
+	# catch the errors, and pass them to the caller
+	if [catch {	set jt [drmaa::drmaa_allocate_job_template]
+			drmaa::drmaa_set_attribute $jt drmaa_wd $drmaa::DRMAA_PLACEHOLDER_HD
+			drmaa::drmaa_set_attribute $jt drmaa_remote_command $exit_job
+			drmaa::drmaa_set_vector_attribute $jt drmaa_v_argv 0
+			drmaa::drmaa_set_attribute $jt drmaa_output_path ":/dev/null"
+			} result options] {
+		return -code error $options
 	}
 	return $jt
 }
@@ -120,6 +137,61 @@ proc wait_individual_jobs {all_jobids} {
 		return -code error $options
 	}
 	puts "\twaited all jobs"
+	return
+}
+
+proc check_term_details {stat exp_aborted exp_exited exp_signaled} {
+	if [catch {	set aborted [drmaa::drmaa_wifaborted $stat]
+			if {$exp_aborted && !$aborted} {
+				return -code error -errorinfo "Expected wifaborted = $exp_aborted got $aborted"
+			}
+			set exited [drmaa::drmaa_wifexited $stat]
+			if {$exp_exited && !$exited} {
+				return -code error -errorinfo "Expected wifexited = $exp_exited, got $exited"
+			}
+			set signaled [drmaa::drmaa_wifsignaled $stat]
+			if {$exp_signaled && !$signaled} {
+				return -code error -errorinfo "Expected wifsignaled = $exp_signaled, got $signaled"
+			} } result options] {
+		return -code error $options
+	}
+	return
+}
+
+proc check_job_state {jobid exp_jobstate} {
+	set retry_count 3
+	set retry_sleep 5
+	while {$retry_count > 0} {
+		set job_state [drmaa::drmaa_job_ps $jobid]
+		if {$job_state == $exp_jobstate} {
+			puts "\tjob state is $exp_jobstate, as expected"
+			return
+		} else {
+			puts "\tCurrent job state is $job_state, expected $exp_jobstate,"
+			puts "\ttrying to get another answer ($retry_count attempts left)"
+			incr retry_count -1
+			sleep $retry_sleep
+		}
+	}
+	return -code error -errorinfo "Too many drmaa_job_ps retries, while $exp_jobstate was expected."
+}
+
+proc wait_n_jobs {njobs} {
+	global max_wait ANY_JOB
+	for {set i 0} {$i<$njobs} {incr i} {
+		while {1} {
+			if [catch {set wout [drmaa::drmaa_wait $ANY_JOB $max_wait]} result options] {
+				if {[lindex $result 1]=="TRY_LATER"} {
+					puts "\tretry ..."
+					continue
+				}
+				return -code error $options
+			}
+			set jobid [lindex $wout 0]
+			break;
+		}
+	}
+	puts "\twaiting for any job resulted in finished job $jobid"
 	return
 }
 
@@ -497,7 +569,7 @@ proc ST_SUBMITMIXTURE_SYNC_ALLIDS_NODISPOSE {} {
 
 }
 
-proc ST_EXIT_STATUS {x} {}
+proc ST_EXIT_STATUS {} {
 ##	ST_EXIT_STATUS,
 ##	- drmaa_init() is called
 ##	- 255 job are submitted
@@ -505,16 +577,102 @@ proc ST_EXIT_STATUS {x} {}
 ##	- drmaa_wait() verifies each job returned the
 ##	correct exit status
 ##	- then drmaa_exit() is called
+	global max_wait
+	set alljobs {}
+	if [catch {	drmaa::drmaa_init
+			set jt [create_exit_job_template]
+			for {set i 0} {$i<126} {incr i} {
+				drmaa::drmaa_set_vector_attribute $jt drmaa_v_argv $i
+				set jobid [drmaa::drmaa_run_job $jt]
+				lappend alljobs $jobid
+				puts "\t$i\t$jobid"
+			}
+			drmaa::drmaa_delete_job_template $jt
+			for {set i 0} {$i<126} {incr i} {
+				set jobid [lindex $alljobs $i]
+				while 1 {
+					if [catch {set wout [drmaa::drmaa_wait $jobid $max_wait]} res opts] {
+						if {[lindex $res 1] == "DRM_COMMUNICATIONS_FAILURE"} {
+							sleep(1)
+						}
+						error_report $result $options
+						return -code error $options
+					}
+					puts "job $i with job id $jobid finished"
+					break
+				}
+				set jobstat [lindex $wout 1]
+				if {! [drmaa::drmaa_wifexited $jobstat]} {
+					return -code error "Job $jobid did not exit cleanly"
+				}
+				set exit_status [drmaa::drmaa_wexitstatus $jobstat]
+				if {$exit_status != $i} {
+					return -code error "Job $jobid returned $exit_status instead of $i!"
+				}
+			}
+			puts "\twaited all jobs"
+			drmaa::drmaa_exit} result options] {
+		error_report $result $options
+		return -code error $options
+	}
+	return
+}
 
-proc ST_SUBMIT_KILL_SIG {x} {}
+proc ST_SUBMIT_KILL_SIG {} {
 ##	ST_SUBMIT_KILL_SIG,
 ##	- drmaa_init() is called
 ##	- one job is submitted
 ##	- job is killed via SIGKILL and SIGINT
 ##	- drmaa_wtermsig() is used to validate if the correct termination signals where reported
 ##	- drmaa_exit_is_called
+	global kill_job max_wait
+	array set sigList {
+		 1	SIGHUP
+		 3	SIGQUIT
+		 4	SIGILL
+		 6	SIGABRT
+		 8	SIGFPE
+		 9	SIGKILL
+		10	SIGUSR1
+		11	SIGSEGV
+		12	SIGUSR2
+		14	SIGALRM
+		15	SIGTERM
+	}
+	if [catch {	drmaa::drmaa_init
+			set jt [drmaa::drmaa_allocate_job_template]
+			drmaa::drmaa_set_attribute $jt drmaa_wd $drmaa::DRMAA_PLACEHOLDER_HD
+			drmaa::drmaa_set_attribute $jt drmaa_remote_command $kill_job
+			drmaa::drmaa_set_attribute $jt drmaa_output_path ":/dev/null"
+			foreach {sig exp_sigName} [array get sigList] {
+				puts "\tTesting with $exp_sigName ($sig)"
+				drmaa::drmaa_set_vector_attribute $jt drmaa_v_argv $sig
+				set jobid [drmaa::drmaa_run_job $jt]
+				puts "\tsubmitted job $jobid"
+				set wout [drmaa::drmaa_wait $jobid $max_wait]
+				set jobstat [lindex $wout 1]
+				check_term_details $jobstat 0 0 1
+				set sigName [drmaa::drmaa_wtermsig $jobstat]
+				if {$sigName == $exp_sigName} {
+					puts -nonewline "\tjob $jobid was killed with $sigName, as expected"
+					set was_dumped [drmaa::drmaa_wcoredump $jobstat]
+					if $was_dumped {
+						puts " (with core dump file)"
+					} else {
+						puts " (without core dump file)"
+					}
+				} else {
+					return -code error -errorinfo "Reported signal is $sigName, expected $exp_sigName."
+				}
+			}
+			drmaa::drmaa_exit} result options] {
+		error_report $result $options
+		return -code error $options
+	}
+	return
+}
 
-proc ST_INPUT_FILE_FAILURE {x} {}
+proc ST_INPUT_FILE_FAILURE {} {
 ##	ST_INPUT_FILE_FAILURE,
 ##	- drmaa_init() is called
 ##	- a job is submitted with input/output/error path specification
@@ -523,8 +681,26 @@ proc ST_INPUT_FILE_FAILURE {x} {}
 ##	- drmaa_job_ps() must return DRMAA_PS_FAILED
 ##	- drmaa_wait() must report drmaa_wifaborted() -> true
 ##	- then drmaa_exit() is called
+	global sleeper_job max_wait ALL_JOBS
+	if [catch {	drmaa::drmaa_init
+			set jt [create_sleeper_job_template 5 0]
+			drmaa::drmaa_set_attribute $jt drmaa_input_path ":nonexistent_file"
+			set jobid [drmaa::drmaa_run_job $jt]
+			puts "\tsubmitted job $jobid"
+			drmaa::drmaa_delete_job_template $jt
+			puts "\tsynchronizing: $ALL_JOBS"
+			drmaa::drmaa_synchronize $max_wait 0 $ALL_JOBS
+			puts "\tsynchronized with job finish"
+			check_job_state $jobid FAILED
+			drmaa::drmaa_wait $jobid $drmaa::DRMAA_TIMEOUT_NO_WAIT
+			drmaa::drmaa_exit} result options] {
+		error_report $result $options
+		return -code error $options
+	}
+	return
+}
 
-proc ST_OUTPUT_FILE_FAILURE {x} {}
+proc ST_OUTPUT_FILE_FAILURE {} {
 ##	ST_OUTPUT_FILE_FAILURE,
 ##	- drmaa_init() is called
 ##	- a job is submitted with input/output/error path specification
@@ -533,8 +709,27 @@ proc ST_OUTPUT_FILE_FAILURE {x} {}
 ##	- drmaa_job_ps() must return DRMAA_PS_FAILED
 ##	- drmaa_wait() must report drmaa_wifaborted() -> true
 ##	- then drmaa_exit() is called
+	global sleeper_job max_wait ALL_JOBS
+	if [catch {	drmaa::drmaa_init
+			set jt [create_sleeper_job_template 5 0]
+			drmaa::drmaa_set_attribute $jt drmaa_join_files "y"
+			drmaa::drmaa_set_attribute $jt drmaa_output_path ":nonwritable_file"
+			set jobid [drmaa::drmaa_run_job $jt]
+			puts "\tsubmitted job $jobid"
+			drmaa::drmaa_delete_job_template $jt
+			puts "\tsynchronizing: $ALL_JOBS"
+			drmaa::drmaa_synchronize $max_wait 0 $ALL_JOBS
+			puts "\tsynchronized with job finish"
+			check_job_state $jobid FAILED
+			drmaa::drmaa_wait $jobid $drmaa::DRMAA_TIMEOUT_NO_WAIT
+			drmaa::drmaa_exit} result options] {
+		error_report $result $options
+		return -code error $options
+	}
+	return
+}
 
-proc ST_ERROR_FILE_FAILURE {x} {}
+proc ST_ERROR_FILE_FAILURE {} {
 ##	ST_ERROR_FILE_FAILURE,
 ##	- drmaa_init() is called
 ##	- a job is submitted with input/output/error path specification
@@ -543,8 +738,27 @@ proc ST_ERROR_FILE_FAILURE {x} {}
 ##	- drmaa_job_ps() must return DRMAA_PS_FAILED
 ##	- drmaa_wait() must report drmaa_wifaborted() -> true
 ##	- then drmaa_exit() is called
+	global sleeper_job max_wait ALL_JOBS
+	if [catch {	drmaa::drmaa_init
+			set jt [create_sleeper_job_template 5 0]
+			drmaa::drmaa_set_attribute $jt drmaa_join_files "n"
+			drmaa::drmaa_set_attribute $jt drmaa_error_path ":nonwritable_file"
+			set jobid [drmaa::drmaa_run_job $jt]
+			puts "\tsubmitted job $jobid"
+			drmaa::drmaa_delete_job_template $jt
+			puts "\tsynchronizing: $ALL_JOBS"
+			drmaa::drmaa_synchronize $max_wait 0 $ALL_JOBS
+			puts "\tsynchronized with job finish"
+			check_job_state $jobid FAILED
+			drmaa::drmaa_wait $jobid $drmaa::DRMAA_TIMEOUT_NO_WAIT
+			drmaa::drmaa_exit} result options] {
+		error_report $result $options
+		return -code error $options
+	}
+	return
+}
 
-proc ST_SUBMIT_IN_HOLD_RELEASE {x} {}
+proc ST_SUBMIT_IN_HOLD_RELEASE {} {
 ##	ST_SUBMIT_IN_HOLD_RELEASE,
 ##	- drmaa_init() is called
 ##	- a job is submitted with a user hold
@@ -553,7 +767,26 @@ proc ST_SUBMIT_IN_HOLD_RELEASE {x} {}
 ##	- the job is waited
 ##	- then drmaa_exit() is called
 ##	(still requires manual testing)
-##
+	global max_wait ALL_JOBS
+	if [catch {	drmaa::drmaa_init
+			set jt [create_sleeper_job_template 5 1]
+			set job_id [drmaa::drmaa_run_job $jt]
+			drmaa::drmaa_delete_job_template $jt
+			puts "\tsubmitted job in hold state $job_id"
+			check_job_state $job_id USER_ON_HOLD
+			puts "\tverified user hold state for job $job_id"
+			drmaa::drmaa_control $job_id RELEASE
+			puts "\treleased user hold state for job $job_id"
+			drmaa::drmaa_synchronize $max_wait 0 $ALL_JOBS
+			puts "\tsynchronized with job finish"
+			check_job_state $job_id DONE
+			wait_n_jobs 1
+			drmaa::drmaa_exit} result options] {
+		error_report $result $options
+		return -code error
+	}
+	return
+}
 
 proc ST_SUBMIT_IN_HOLD_DELETE {x} {}
 ##	ST_SUBMIT_IN_HOLD_DELETE,
@@ -564,7 +797,6 @@ proc ST_SUBMIT_IN_HOLD_DELETE {x} {}
 ##	- the job is waited and it is checked if wifaborted is true
 ##	- then drmaa_exit() is called
 ##	(still requires manual testing)
-##
 
 proc ST_BULK_SUBMIT_IN_HOLD_SESSION_RELEASE {x} {}
 ##	ST_BULK_SUBMIT_IN_HOLD_SESSION_RELEASE,
@@ -574,7 +806,6 @@ proc ST_BULK_SUBMIT_IN_HOLD_SESSION_RELEASE {x} {}
 ##	- the job ids are waited
 ##	- then drmaa_exit() is called
 ##	(still requires manual testing)
-##
 
 proc ST_BULK_SUBMIT_IN_HOLD_SINGLE_RELEASE {x} {}
 ##	ST_BULK_SUBMIT_IN_HOLD_SINGLE_RELEASE,
@@ -584,7 +815,6 @@ proc ST_BULK_SUBMIT_IN_HOLD_SINGLE_RELEASE {x} {}
 ##	- the job ids are waited
 ##	- then drmaa_exit() is called
 ##	(still requires manual testing)
-##
 
 proc ST_BULK_SUBMIT_IN_HOLD_SESSION_DELETE {x} {}
 ##	ST_BULK_SUBMIT_IN_HOLD_SESSION_DELETE,
@@ -595,7 +825,6 @@ proc ST_BULK_SUBMIT_IN_HOLD_SESSION_DELETE {x} {}
 ##	- the job ids are waited
 ##	- then drmaa_exit() is called
 ##	(still requires manual testing)
-##
 
 proc ST_BULK_SUBMIT_IN_HOLD_SINGLE_DELETE {x} {}
 ##	ST_BULK_SUBMIT_IN_HOLD_SINGLE_DELETE,
@@ -606,7 +835,6 @@ proc ST_BULK_SUBMIT_IN_HOLD_SINGLE_DELETE {x} {}
 ##	- the job ids are waited
 ##	- then drmaa_exit() is called
 ##	(still requires manual testing)
-##
 
 proc ST_SUBMIT_POLLING_WAIT_TIMEOUT {x} {}
 ##	ST_SUBMIT_POLLING_WAIT_TIMEOUT,

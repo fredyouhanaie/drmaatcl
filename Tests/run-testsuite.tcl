@@ -104,3 +104,28 @@ tcltest::test  ST_SUBMITMIXTURE_SYNC_ALLIDS_NODISPOSE {Submit bulk/single jobs, 
 	-returnCodes ok
 }
 
+tcltest::test  ST_EXIT_STATUS {Submit single jobs, check exit status} {
+	-body {ST_EXIT_STATUS}
+	-returnCodes ok
+}
+
+tcltest::test  ST_SUBMIT_KILL_SIG {Submit single jobs, kill, check termination} {
+	-body {ST_SUBMIT_KILL_SIG}
+	-returnCodes ok
+}
+
+tcltest::test  ST_INPUT_FILE_FAILURE {Submit single job with invalid input path} {
+	-body {ST_INPUT_FILE_FAILURE}
+	-returnCodes ok
+}
+
+tcltest::test  ST_OUTPUT_FILE_FAILURE {Submit single job with invalid output path} {
+	-body {ST_OUTPUT_FILE_FAILURE}
+	-returnCodes ok
+}
+
+tcltest::test  ST_ERROR_FILE_FAILURE {Submit single job with invalid error path} {
+	-body {ST_ERROR_FILE_FAILURE}
+	-returnCodes ok
+}
+
