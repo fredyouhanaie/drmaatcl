@@ -19,6 +19,10 @@ set max_wait 3600
 set ANY_JOB	$drmaa::DRMAA_JOB_IDS_SESSION_ANY
 set ALL_JOBS	$drmaa::DRMAA_JOB_IDS_SESSION_ALL
 
+# File paths
+set SECURE_FILE "/tmp/drmaa_inaccessible_file"
+set SLEEPER_LOG	"drmaa_sleeper_job.log"
+
 # Tcl does not have a common garden (POSIX) sleep command
 proc sleep {seconds} {
 	after [expr 1000*$seconds]
@@ -38,7 +42,9 @@ proc create_sleeper_job_template {seconds in_hold} {
 	global sleeper_job
 	# catch the errors, and pass them to the caller
 	if [catch {	set jt [drmaa::drmaa_allocate_job_template]
-			drmaa::drmaa_set_attribute $jt drmaa_wd $drmaa::DRMAA_PLACEHOLDER_HD
+			#drmaa::drmaa_set_attribute $jt drmaa_wd $drmaa::DRMAA_PLACEHOLDER_HD
+			drmaa::drmaa_set_attribute $jt drmaa_output_path ":$::SLEEPER_LOG"
+			drmaa::drmaa_set_attribute $jt drmaa_join_files "y"
 			drmaa::drmaa_set_attribute $jt drmaa_remote_command $sleeper_job
 			drmaa::drmaa_set_vector_attribute $jt drmaa_v_argv $seconds
 			if $in_hold {
@@ -54,9 +60,10 @@ proc create_exit_job_template {} {
 	# catch the errors, and pass them to the caller
 	if [catch {	set jt [drmaa::drmaa_allocate_job_template]
 			drmaa::drmaa_set_attribute $jt drmaa_wd $drmaa::DRMAA_PLACEHOLDER_HD
+			drmaa::drmaa_set_attribute $jt drmaa_output_path ":/dev/null"
+			drmaa::drmaa_set_attribute $jt drmaa_join_files "y"
 			drmaa::drmaa_set_attribute $jt drmaa_remote_command $exit_job
 			drmaa::drmaa_set_vector_attribute $jt drmaa_v_argv 0
-			drmaa::drmaa_set_attribute $jt drmaa_output_path ":/dev/null"
 			} result options] {
 		return -code error $options
 	}
@@ -164,10 +171,10 @@ proc check_job_state {jobid exp_jobstate} {
 	while {$retry_count > 0} {
 		set job_state [drmaa::drmaa_job_ps $jobid]
 		if {$job_state == $exp_jobstate} {
-			puts "\tjob state is $exp_jobstate, as expected"
+			puts "\tjob state for $jobid is $exp_jobstate, as expected"
 			return
 		} else {
-			puts "\tCurrent job state is $job_state, expected $exp_jobstate,"
+			puts "\tCurrent job state $jobid is $job_state, expected $exp_jobstate,"
 			puts "\ttrying to get another answer ($retry_count attempts left)"
 			incr retry_count -1
 			sleep $retry_sleep
@@ -530,8 +537,9 @@ proc ST_SUBMIT_KILL_SIG {} {
 	if [catch {	drmaa::drmaa_init
 			set jt [drmaa::drmaa_allocate_job_template]
 			drmaa::drmaa_set_attribute $jt drmaa_wd $drmaa::DRMAA_PLACEHOLDER_HD
-			drmaa::drmaa_set_attribute $jt drmaa_remote_command $kill_job
 			drmaa::drmaa_set_attribute $jt drmaa_output_path ":/dev/null"
+			drmaa::drmaa_set_attribute $jt drmaa_join_files "y"
+			drmaa::drmaa_set_attribute $jt drmaa_remote_command $kill_job
 			foreach {sig exp_sigName} [array get sigList] {
 				puts "\tTesting with $exp_sigName ($sig)"
 				drmaa::drmaa_set_vector_attribute $jt drmaa_v_argv $sig
@@ -564,7 +572,7 @@ proc ST_INPUT_FILE_FAILURE {} {
 	global sleeper_job max_wait ALL_JOBS
 	if [catch {	drmaa::drmaa_init
 			set jt [create_sleeper_job_template 5 0]
-			drmaa::drmaa_set_attribute $jt drmaa_input_path ":nonexistent_file"
+			drmaa::drmaa_set_attribute $jt drmaa_input_path ":$SECURE_FILE"
 			set jobid [drmaa::drmaa_run_job $jt]
 			puts "\tsubmitted job $jobid"
 			drmaa::drmaa_delete_job_template $jt
@@ -585,7 +593,7 @@ proc ST_OUTPUT_FILE_FAILURE {} {
 	if [catch {	drmaa::drmaa_init
 			set jt [create_sleeper_job_template 5 0]
 			drmaa::drmaa_set_attribute $jt drmaa_join_files "y"
-			drmaa::drmaa_set_attribute $jt drmaa_output_path ":nonwritable_file"
+			drmaa::drmaa_set_attribute $jt drmaa_output_path ":$SECURE_FILE"
 			set jobid [drmaa::drmaa_run_job $jt]
 			puts "\tsubmitted job $jobid"
 			drmaa::drmaa_delete_job_template $jt
@@ -606,7 +614,7 @@ proc ST_ERROR_FILE_FAILURE {} {
 	if [catch {	drmaa::drmaa_init
 			set jt [create_sleeper_job_template 5 0]
 			drmaa::drmaa_set_attribute $jt drmaa_join_files "n"
-			drmaa::drmaa_set_attribute $jt drmaa_error_path ":nonwritable_file"
+			drmaa::drmaa_set_attribute $jt drmaa_error_path ":$SECURE_FILE"
 			set jobid [drmaa::drmaa_run_job $jt]
 			puts "\tsubmitted job $jobid"
 			drmaa::drmaa_delete_job_template $jt
@@ -629,7 +637,9 @@ proc ST_SUBMIT_IN_HOLD_RELEASE {} {
 			set job_id [drmaa::drmaa_run_job $jt]
 			drmaa::drmaa_delete_job_template $jt
 			puts "\tsubmitted job in hold state $job_id"
-			check_job_state $job_id USER_ON_HOLD
+			if [catch {check_job_state $job_id USER_ON_HOLD}] {
+				check_job_state $job_id SYSTEM_ON_HOLD
+			}
 			puts "\tverified user hold state for job $job_id"
 			drmaa::drmaa_control $job_id RELEASE
 			puts "\treleased user hold state for job $job_id"
@@ -644,15 +654,154 @@ proc ST_SUBMIT_IN_HOLD_RELEASE {} {
 	return
 }
 
-proc ST_SUBMIT_IN_HOLD_DELETE {x} {}
+proc ST_SUBMIT_IN_HOLD_DELETE {} {
+	global max_wait ALL_JOBS
+	if [catch {	drmaa::drmaa_init
+			set jt [create_sleeper_job_template 5 1]
+			set job_id [drmaa::drmaa_run_job $jt]
+			drmaa::drmaa_delete_job_template $jt
+			puts "\tsubmitted job in hold state $job_id"
+			if [catch {check_job_state $job_id USER_ON_HOLD}] {
+				check_job_state $job_id SYSTEM_ON_HOLD
+			}
+			puts "\tverified user hold state for job $job_id"
+			drmaa::drmaa_control $job_id TERMINATE
+			puts "\treleased user hold state for job $job_id"
+			drmaa::drmaa_synchronize $max_wait 0 $ALL_JOBS
+			puts "\tsynchronized with job finish"
+			check_job_state $job_id FAILED
+			if [catch {set wout [drmaa::drmaa_wait $job_id $max_wait]} result options] {
+				if {[lindex $result 1] != "NO_RUSAGE"} {
+					error_report $result $options
+					return -code error
+				}
+			}
+			check_term_details [lindex $wout 1] 1 0 0
+			drmaa::drmaa_exit} result options] {
+		error_report $result $options
+		return -code error
+	}
+	return
+}
 
-proc ST_BULK_SUBMIT_IN_HOLD_SESSION_RELEASE {x} {}
+proc ST_BULK_SUBMIT_IN_HOLD_SESSION_RELEASE {} {
+	global ALL_JOBS JOB_CHUNK max_wait
+	if [catch {	drmaa::drmaa_init
+			set jt [create_sleeper_job_template 5 1]
+			set jobids [drmaa::drmaa_run_bulk_jobs $jt 1 $JOB_CHUNK 1]
+			puts "\tsubmitted bulk job with jobids: $jobids"
+			drmaa::drmaa_delete_job_template $jt
+			foreach jid $jobids {
+				if [catch {check_job_state $jid USER_ON_HOLD}] {
+					check_job_state $jid USER_SYSTEM_ON_HOLD
+				}
+			}
+			puts "\tverified user hold state for bulk job"
+			#foreach jid $jobids {
+				#drmaa::drmaa_control $jid RELEASE	;# single release
+				#drmaa::drmaa_control $jid TERMINATE	;# single delete
+			#}
+			drmaa::drmaa_control $ALL_JOBS RELEASE		;# session release
+			#drmaa::drmaa_control $ALL_JOBS TERMINATE	;# session delete
+			puts "\treleased all jobs"
+			#puts "\tterminated all jobs"
+			drmaa::drmaa_synchronize $max_wait 0 $ALL_JOBS	;# session/single release
+			puts "synchronized with job finish"		;# session/single release
+			foreach jid $jobids {
+				check_job_state $jid DONE	;# single/session release
+				#check_job_state $jid FAILED	;# single/session delete
+			}
+			wait_n_jobs $JOB_CHUNK
+			drmaa::drmaa_exit} result options] {
+		error_report result options
+		return -code error $options
+	}
+	return
+}
 
-proc ST_BULK_SUBMIT_IN_HOLD_SINGLE_RELEASE {x} {}
+proc ST_BULK_SUBMIT_IN_HOLD_SINGLE_RELEASE {} {
+	global ALL_JOBS JOB_CHUNK max_wait
+	if [catch {	drmaa::drmaa_init
+			set jt [create_sleeper_job_template 5 1]
+			set jobids [drmaa::drmaa_run_bulk_jobs $jt 1 $JOB_CHUNK 1]
+			puts "\tsubmitted bulk job with jobids: $jobids"
+			drmaa::drmaa_delete_job_template $jt
+			foreach jid $jobids {
+				if [catch {check_job_state $jid USER_ON_HOLD}] {
+					check_job_state $jid USER_SYSTEM_ON_HOLD
+				}
+			}
+			puts "\tverified user hold state for bulk job"
+			foreach jid $jobids {
+				drmaa::drmaa_control $jid RELEASE
+			}
+			puts "\treleased all jobs"
+			drmaa::drmaa_synchronize $max_wait 0 $ALL_JOBS
+			puts "synchronized with job finish"
+			foreach jid $jobids {
+				check_job_state $jid DONE
+			}
+			wait_n_jobs $JOB_CHUNK
+			drmaa::drmaa_exit} result options] {
+		error_report result options
+		return -code error $options
+	}
+	return
+}
 
-proc ST_BULK_SUBMIT_IN_HOLD_SESSION_DELETE {x} {}
+proc ST_BULK_SUBMIT_IN_HOLD_SESSION_DELETE {} {
+	global ALL_JOBS JOB_CHUNK max_wait
+	if [catch {	drmaa::drmaa_init
+			set jt [create_sleeper_job_template 5 1]
+			set jobids [drmaa::drmaa_run_bulk_jobs $jt 1 $JOB_CHUNK 1]
+			puts "\tsubmitted bulk job with jobids: $jobids"
+			drmaa::drmaa_delete_job_template $jt
+			foreach jid $jobids {
+				if [catch {check_job_state $jid USER_ON_HOLD}] {
+					check_job_state $jid USER_SYSTEM_ON_HOLD
+				}
+			}
+			puts "\tverified user hold state for bulk job"
+			drmaa::drmaa_control $ALL_JOBS TERMINATE	;# session delete
+			puts "\tterminated all jobs"
+			foreach jid $jobids {
+				check_job_state $jid FAILED	;# single/session delete
+			}
+			wait_n_jobs $JOB_CHUNK
+			drmaa::drmaa_exit} result options] {
+		error_report result options
+		return -code error $options
+	}
+	return
+}
 
-proc ST_BULK_SUBMIT_IN_HOLD_SINGLE_DELETE {x} {}
+proc ST_BULK_SUBMIT_IN_HOLD_SINGLE_DELETE {} {
+	global ALL_JOBS JOB_CHUNK max_wait
+	if [catch {	drmaa::drmaa_init
+			set jt [create_sleeper_job_template 5 1]
+			set jobids [drmaa::drmaa_run_bulk_jobs $jt 1 $JOB_CHUNK 1]
+			puts "\tsubmitted bulk job with jobids: $jobids"
+			drmaa::drmaa_delete_job_template $jt
+			foreach jid $jobids {
+				if [catch {check_job_state $jid USER_ON_HOLD}] {
+					check_job_state $jid USER_SYSTEM_ON_HOLD
+				}
+			}
+			puts "\tverified user hold state for bulk job"
+			foreach jid $jobids {
+				drmaa::drmaa_control $jid TERMINATE	;# single delete
+			}
+			puts "\tterminated all jobs"
+			foreach jid $jobids {
+				check_job_state $jid FAILED	;# single/session delete
+			}
+			wait_n_jobs $JOB_CHUNK
+			drmaa::drmaa_exit} result options] {
+		error_report result options
+		return -code error $options
+	}
+	return
+}
 
 proc ST_SUBMIT_POLLING_WAIT_TIMEOUT {x} {}
 

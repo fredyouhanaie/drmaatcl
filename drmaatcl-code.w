@@ -686,6 +686,10 @@ int Drmaa_synchronize(ClientData cd, Tcl_Interp *ti, int objc, Tcl_Obj *CONST ob
 Wait for specific or any job. Returns \.{jobid} of waited job, \.{stat}
 indicating job status and \.{rusage} as a list of \.{name=value} elements.
 
+Note that if |drmaa_wait| returns \.{DRMAA\_ERRNO\_NO\_RUSAGE}, then
+we treat that as not an error, and return a two element result, \.{jobid}
+and \.{stat}.
+
 @<Job Control Commands@>=
 int Drmaa_wait(ClientData cd, Tcl_Interp *ti, int objc, Tcl_Obj *CONST objv[])
 {
@@ -708,7 +712,7 @@ int Drmaa_wait(ClientData cd, Tcl_Interp *ti, int objc, Tcl_Obj *CONST objv[])
 	errcode = drmaa_wait(Tcl_GetString(objv[1]), jobid, sizeof(jobid)-1,
 		&stat, (signed long)timeout, &rusage,
 		errdiag, sizeof(errdiag)-1);
-	if (errcode != DRMAA_ERRNO_SUCCESS) {
+	if (errcode != DRMAA_ERRNO_SUCCESS && errcode != DRMAA_ERRNO_NO_RUSAGE) {
 		Drmaa_ErrorReturn(ti, errcode, errdiag);
 		return TCL_ERROR;
 	}
@@ -718,10 +722,12 @@ int Drmaa_wait(ClientData cd, Tcl_Interp *ti, int objc, Tcl_Obj *CONST objv[])
 	sprintf(statstr, "%d", stat);
 	Tcl_AppendElement(ti, statstr);
 @#
-	char ru[DRMAA_VALUE_BUFFER];
-	while (drmaa_get_next_attr_value(rusage, ru, sizeof(ru)-1) == DRMAA_ERRNO_SUCCESS)
-		Tcl_AppendElement(ti, ru);
-	drmaa_release_attr_values(rusage);
+	if (errcode != DRMAA_ERRNO_NO_RUSAGE) {
+		char ru[DRMAA_VALUE_BUFFER];
+		while (drmaa_get_next_attr_value(rusage, ru, sizeof(ru)-1) == DRMAA_ERRNO_SUCCESS)
+			Tcl_AppendElement(ti, ru);
+		drmaa_release_attr_values(rusage);
+	}
 
 	return TCL_OK;
 @#
