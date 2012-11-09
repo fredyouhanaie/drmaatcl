@@ -39,13 +39,12 @@ proc error_report {result options} {
 }
 
 proc create_sleeper_job_template {seconds in_hold} {
-	global sleeper_job
 	# catch the errors, and pass them to the caller
 	if [catch {	set jt [drmaa::drmaa_allocate_job_template]
 			#drmaa::drmaa_set_attribute $jt drmaa_wd $drmaa::DRMAA_PLACEHOLDER_HD
 			drmaa::drmaa_set_attribute $jt drmaa_output_path ":$::SLEEPER_LOG"
 			drmaa::drmaa_set_attribute $jt drmaa_join_files "y"
-			drmaa::drmaa_set_attribute $jt drmaa_remote_command $sleeper_job
+			drmaa::drmaa_set_attribute $jt drmaa_remote_command $::sleeper_job
 			drmaa::drmaa_set_vector_attribute $jt drmaa_v_argv $seconds
 			if $in_hold {
 				drmaa::drmaa_set_attribute $jt drmaa_js_state $drmaa::DRMAA_SUBMISSION_STATE_HOLD
@@ -56,13 +55,12 @@ proc create_sleeper_job_template {seconds in_hold} {
 }
 
 proc create_exit_job_template {} {
-	global exit_job
 	# catch the errors, and pass them to the caller
 	if [catch {	set jt [drmaa::drmaa_allocate_job_template]
 			drmaa::drmaa_set_attribute $jt drmaa_wd $drmaa::DRMAA_PLACEHOLDER_HD
 			drmaa::drmaa_set_attribute $jt drmaa_output_path ":/dev/null"
 			drmaa::drmaa_set_attribute $jt drmaa_join_files "y"
-			drmaa::drmaa_set_attribute $jt drmaa_remote_command $exit_job
+			drmaa::drmaa_set_attribute $jt drmaa_remote_command $::exit_job
 			drmaa::drmaa_set_vector_attribute $jt drmaa_v_argv 0
 			} result options] {
 		return -code error $options
@@ -72,10 +70,9 @@ proc create_exit_job_template {} {
 
 # wait for all ST jobs
 proc wait_all_st_jobs {njobs} {
-	global ANY_JOB max_wait
 	puts "\twaiting for $njobs jobs"
 	while {$njobs>0} {
-		if [catch {set wout [drmaa::drmaa_wait $ANY_JOB $max_wait]} result options] {
+		if [catch {set wout [drmaa::drmaa_wait $::ANY_JOB $::max_wait]} result options] {
 			if {[lindex $result 1] != "INVALID_JOB"} {
 				return $options
 			}
@@ -121,11 +118,10 @@ proc submit_sleeper_jobs {seconds in_hold njobs} {
 
 # wait for individual jobs
 proc wait_individual_jobs {all_jobids} {
-	global max_wait
 	puts "\twaiting for $all_jobids"
 	if [catch {	foreach jobid $all_jobids {
 				while 1 {
-					if [catch {set wout [drmaa::drmaa_wait $jobid $max_wait]} res opt] {
+					if [catch {set wout [drmaa::drmaa_wait $jobid $::max_wait]} res opt] {
 						set err [lindex $res 1]
 						if {$err =="DRM_COMMUNICATIONS_FAILURE"} {
 							sleep 1
@@ -184,10 +180,9 @@ proc check_job_state {jobid exp_jobstate} {
 }
 
 proc wait_n_jobs {njobs} {
-	global max_wait ANY_JOB
 	for {set i 0} {$i<$njobs} {incr i} {
 		while {1} {
-			if [catch {set wout [drmaa::drmaa_wait $ANY_JOB $max_wait]} result options] {
+			if [catch {set wout [drmaa::drmaa_wait $::ANY_JOB $::max_wait]} result options] {
 				if {[lindex $result 1]=="TRY_LATER"} {
 					puts "\tretry ..."
 					continue
@@ -313,12 +308,11 @@ proc ST_CONTACT {} {
 }
 
 proc ST_EMPTY_SESSION_WAIT {} {
-	global max_wait
 	if [catch {drmaa::drmaa_init} result options] {
 		error_report $result $options
 		return -code error
 	}
-	if [catch {drmaa::drmaa_wait $drmaa::DRMAA_JOB_IDS_SESSION_ANY $max_wait
+	if [catch {drmaa::drmaa_wait $drmaa::DRMAA_JOB_IDS_SESSION_ANY $::max_wait
 			} result options] {
 		if {[lindex $result 1] != "INVALID_JOB"} {
 			error_report $result $options
@@ -335,9 +329,8 @@ proc ST_EMPTY_SESSION_WAIT {} {
 }
 
 proc ST_EMPTY_SESSION_SYNCHRONIZE_DISPOSE {} {
-	global max_wait
 	if [catch {	drmaa::drmaa_init
-			drmaa::drmaa_synchronize $max_wait 1 $drmaa::DRMAA_JOB_IDS_SESSION_ALL
+			drmaa::drmaa_synchronize $::max_wait 1 $drmaa::DRMAA_JOB_IDS_SESSION_ALL
 			drmaa::drmaa_exit} result options] {
 		error_report $result $options
 		return -code error
@@ -346,9 +339,8 @@ proc ST_EMPTY_SESSION_SYNCHRONIZE_DISPOSE {} {
 }
 
 proc ST_EMPTY_SESSION_SYNCHRONIZE_NODISPOSE {} {
-	global max_wait
 	if [catch {	drmaa::drmaa_init
-			drmaa::drmaa_synchronize $max_wait 0 $drmaa::DRMAA_JOB_IDS_SESSION_ALL
+			drmaa::drmaa_synchronize $::max_wait 0 $drmaa::DRMAA_JOB_IDS_SESSION_ALL
 			drmaa::drmaa_exit} result options] {
 		error_report $result $options
 		return -code error
@@ -367,10 +359,9 @@ proc ST_EMPTY_SESSION_CONTROL {action} {
 }
 
 proc ST_SUBMIT_WAIT {} {
-	global JOB_CHUNK
 	if [catch {	drmaa::drmaa_init
-			submit_sleeper_jobs 5 0 $JOB_CHUNK
-			wait_all_st_jobs $JOB_CHUNK
+			submit_sleeper_jobs 5 0 $::JOB_CHUNK
+			wait_all_st_jobs $::JOB_CHUNK
 			drmaa::drmaa_exit
 			} result options] {
 		error_report $result $options
@@ -380,10 +371,9 @@ proc ST_SUBMIT_WAIT {} {
 }
 
 proc ST_BULK_SUBMIT_WAIT {} {
-	global NBULKS JOB_CHUNK
 	if [catch {	drmaa::drmaa_init
-			submit_bulk_sleeper_jobs 5 0 $NBULKS $JOB_CHUNK
-			wait_all_st_jobs [expr $NBULKS*$JOB_CHUNK]
+			submit_bulk_sleeper_jobs 5 0 $::NBULKS $::JOB_CHUNK
+			wait_all_st_jobs [expr $::NBULKS*$::JOB_CHUNK]
 			drmaa::drmaa_exit} result options] {
 		error_report $result $options
 		return -code error $options
@@ -392,11 +382,10 @@ proc ST_BULK_SUBMIT_WAIT {} {
 }
 
 proc ST_BULK_SINGLESUBMIT_WAIT_INDIVIDUAL {} {
-	global NBULKS JOB_CHUNK max_wait
 	set all_jobids {}
 	if [catch {	drmaa::drmaa_init
-			set all_jobids [concat $all_jobids [submit_bulk_sleeper_jobs 5 0 $NBULKS $JOB_CHUNK]]
-			set all_jobids [concat $all_jobids [submit_sleeper_jobs 5 0 $JOB_CHUNK]]
+			set all_jobids [concat $all_jobids [submit_bulk_sleeper_jobs 5 0 $::NBULKS $::JOB_CHUNK]]
+			set all_jobids [concat $all_jobids [submit_sleeper_jobs 5 0 $::JOB_CHUNK]]
 			wait_individual_jobs $all_jobids
 			drmaa::drmaa_exit} result options] {
 		error_report $result $options
@@ -407,12 +396,11 @@ proc ST_BULK_SINGLESUBMIT_WAIT_INDIVIDUAL {} {
 }
 
 proc ST_SUBMITMIXTURE_SYNC_ALL_DISPOSE {} {
-	global NBULKS JOB_CHUNK max_wait ALL_JOBS
 	if [catch {	drmaa::drmaa_init
-			submit_bulk_sleeper_jobs 5 0 $NBULKS $JOB_CHUNK
-			submit_sleeper_jobs 5 0 $JOB_CHUNK
+			submit_bulk_sleeper_jobs 5 0 $::NBULKS $::JOB_CHUNK
+			submit_sleeper_jobs 5 0 $::JOB_CHUNK
 			puts "\tsynchronizing with all jobs."
-			drmaa::drmaa_synchronize $max_wait 1 $ALL_JOBS
+			drmaa::drmaa_synchronize $::max_wait 1 $::ALL_JOBS
 			puts "\tsynchronized with all jobs."
 			drmaa::drmaa_exit} result options] {
 		error_report $result $options
@@ -422,14 +410,13 @@ proc ST_SUBMITMIXTURE_SYNC_ALL_DISPOSE {} {
 }
 
 proc ST_SUBMITMIXTURE_SYNC_ALL_NODISPOSE {} {
-	global NBULKS JOB_CHUNK max_wait ALL_JOBS
 	set all_jobids {}
 	if [catch {	drmaa::drmaa_init
-			set bjobs [submit_bulk_sleeper_jobs 5 0 $NBULKS $JOB_CHUNK]
-			set ijobs [submit_sleeper_jobs 5 0 $JOB_CHUNK]
+			set bjobs [submit_bulk_sleeper_jobs 5 0 $::NBULKS $::JOB_CHUNK]
+			set ijobs [submit_sleeper_jobs 5 0 $::JOB_CHUNK]
 			set all_jobids [concat $bjobs " " $ijobs]
 			puts "\tsynchronizing with all jobs."
-			drmaa::drmaa_synchronize $max_wait 1 $ALL_JOBS
+			drmaa::drmaa_synchronize $::max_wait 1 $::ALL_JOBS
 			puts "\tsynchronized with all jobs."
 			wait_individual_jobs $all_jobids
 			drmaa::drmaa_exit} result options] {
@@ -440,14 +427,13 @@ proc ST_SUBMITMIXTURE_SYNC_ALL_NODISPOSE {} {
 }
 
 proc ST_SUBMITMIXTURE_SYNC_ALLIDS_DISPOSE {} {
-	global NBULKS JOB_CHUNK max_wait ALL_JOBS
 	set all_jobids {}
 	if [catch {	drmaa::drmaa_init
-			set bjobs [submit_bulk_sleeper_jobs 5 0 $NBULKS $JOB_CHUNK]
-			set ijobs [submit_sleeper_jobs 5 0 $JOB_CHUNK]
+			set bjobs [submit_bulk_sleeper_jobs 5 0 $::NBULKS $::JOB_CHUNK]
+			set ijobs [submit_sleeper_jobs 5 0 $::JOB_CHUNK]
 			set all_jobids [concat $bjobs " " $ijobs]
 			puts "\tsynchronizing: $all_jobids"
-			drmaa::drmaa_synchronize $max_wait 1 {*}$all_jobids
+			drmaa::drmaa_synchronize $::max_wait 1 {*}$all_jobids
 			puts "\tsynchronized with all jobs."
 			drmaa::drmaa_exit} result options] {
 		error_report $result $options
@@ -458,14 +444,13 @@ proc ST_SUBMITMIXTURE_SYNC_ALLIDS_DISPOSE {} {
 }
 
 proc ST_SUBMITMIXTURE_SYNC_ALLIDS_NODISPOSE {} {
-	global NBULKS JOB_CHUNK max_wait ALL_JOBS
 	set all_jobids {}
 	if [catch {	drmaa::drmaa_init
-			set bjobs [submit_bulk_sleeper_jobs 5 0 $NBULKS $JOB_CHUNK]
-			set ijobs [submit_sleeper_jobs 5 0 $JOB_CHUNK]
+			set bjobs [submit_bulk_sleeper_jobs 5 0 $::NBULKS $::JOB_CHUNK]
+			set ijobs [submit_sleeper_jobs 5 0 $::JOB_CHUNK]
 			set all_jobids [concat $bjobs " " $ijobs]
 			puts "\tsynchronizing: $all_jobids"
-			drmaa::drmaa_synchronize $max_wait 0 {*}$all_jobids
+			drmaa::drmaa_synchronize $::max_wait 0 {*}$all_jobids
 			puts "\tsynchronized with all jobs."
 			wait_individual_jobs $all_jobids
 			drmaa::drmaa_exit} result options] {
@@ -478,7 +463,6 @@ proc ST_SUBMITMIXTURE_SYNC_ALLIDS_NODISPOSE {} {
 }
 
 proc ST_EXIT_STATUS {} {
-	global max_wait
 	set alljobs {}
 	if [catch {	drmaa::drmaa_init
 			set jt [create_exit_job_template]
@@ -492,7 +476,7 @@ proc ST_EXIT_STATUS {} {
 			for {set i 0} {$i<126} {incr i} {
 				set jobid [lindex $alljobs $i]
 				while 1 {
-					if [catch {set wout [drmaa::drmaa_wait $jobid $max_wait]} res opts] {
+					if [catch {set wout [drmaa::drmaa_wait $jobid $::max_wait]} res opts] {
 						if {[lindex $res 1] == "DRM_COMMUNICATIONS_FAILURE"} {
 							sleep(1)
 						}
@@ -520,7 +504,6 @@ proc ST_EXIT_STATUS {} {
 }
 
 proc ST_SUBMIT_KILL_SIG {} {
-	global kill_job max_wait
 	array set sigList {
 		 1	SIGHUP
 		 3	SIGQUIT
@@ -539,13 +522,13 @@ proc ST_SUBMIT_KILL_SIG {} {
 			drmaa::drmaa_set_attribute $jt drmaa_wd $drmaa::DRMAA_PLACEHOLDER_HD
 			drmaa::drmaa_set_attribute $jt drmaa_output_path ":/dev/null"
 			drmaa::drmaa_set_attribute $jt drmaa_join_files "y"
-			drmaa::drmaa_set_attribute $jt drmaa_remote_command $kill_job
+			drmaa::drmaa_set_attribute $jt drmaa_remote_command $::kill_job
 			foreach {sig exp_sigName} [array get sigList] {
 				puts "\tTesting with $exp_sigName ($sig)"
 				drmaa::drmaa_set_vector_attribute $jt drmaa_v_argv $sig
 				set jobid [drmaa::drmaa_run_job $jt]
 				puts "\tsubmitted job $jobid"
-				set wout [drmaa::drmaa_wait $jobid $max_wait]
+				set wout [drmaa::drmaa_wait $jobid $::max_wait]
 				set jobstat [lindex $wout 1]
 				check_term_details $jobstat 0 0 1
 				set sigName [drmaa::drmaa_wtermsig $jobstat]
@@ -569,15 +552,14 @@ proc ST_SUBMIT_KILL_SIG {} {
 }
 
 proc ST_INPUT_FILE_FAILURE {} {
-	global sleeper_job max_wait ALL_JOBS
 	if [catch {	drmaa::drmaa_init
 			set jt [create_sleeper_job_template 5 0]
-			drmaa::drmaa_set_attribute $jt drmaa_input_path ":$SECURE_FILE"
+			drmaa::drmaa_set_attribute $jt drmaa_input_path ":$::SECURE_FILE"
 			set jobid [drmaa::drmaa_run_job $jt]
 			puts "\tsubmitted job $jobid"
 			drmaa::drmaa_delete_job_template $jt
-			puts "\tsynchronizing: $ALL_JOBS"
-			drmaa::drmaa_synchronize $max_wait 0 $ALL_JOBS
+			puts "\tsynchronizing: $::ALL_JOBS"
+			drmaa::drmaa_synchronize $::max_wait 0 $::ALL_JOBS
 			puts "\tsynchronized with job finish"
 			check_job_state $jobid FAILED
 			drmaa::drmaa_wait $jobid $drmaa::DRMAA_TIMEOUT_NO_WAIT
@@ -589,16 +571,15 @@ proc ST_INPUT_FILE_FAILURE {} {
 }
 
 proc ST_OUTPUT_FILE_FAILURE {} {
-	global sleeper_job max_wait ALL_JOBS
 	if [catch {	drmaa::drmaa_init
 			set jt [create_sleeper_job_template 5 0]
 			drmaa::drmaa_set_attribute $jt drmaa_join_files "y"
-			drmaa::drmaa_set_attribute $jt drmaa_output_path ":$SECURE_FILE"
+			drmaa::drmaa_set_attribute $jt drmaa_output_path ":$::SECURE_FILE"
 			set jobid [drmaa::drmaa_run_job $jt]
 			puts "\tsubmitted job $jobid"
 			drmaa::drmaa_delete_job_template $jt
-			puts "\tsynchronizing: $ALL_JOBS"
-			drmaa::drmaa_synchronize $max_wait 0 $ALL_JOBS
+			puts "\tsynchronizing: $::ALL_JOBS"
+			drmaa::drmaa_synchronize $::max_wait 0 $::ALL_JOBS
 			puts "\tsynchronized with job finish"
 			check_job_state $jobid FAILED
 			drmaa::drmaa_wait $jobid $drmaa::DRMAA_TIMEOUT_NO_WAIT
@@ -610,16 +591,15 @@ proc ST_OUTPUT_FILE_FAILURE {} {
 }
 
 proc ST_ERROR_FILE_FAILURE {} {
-	global sleeper_job max_wait ALL_JOBS
 	if [catch {	drmaa::drmaa_init
 			set jt [create_sleeper_job_template 5 0]
 			drmaa::drmaa_set_attribute $jt drmaa_join_files "n"
-			drmaa::drmaa_set_attribute $jt drmaa_error_path ":$SECURE_FILE"
+			drmaa::drmaa_set_attribute $jt drmaa_error_path ":$::SECURE_FILE"
 			set jobid [drmaa::drmaa_run_job $jt]
 			puts "\tsubmitted job $jobid"
 			drmaa::drmaa_delete_job_template $jt
-			puts "\tsynchronizing: $ALL_JOBS"
-			drmaa::drmaa_synchronize $max_wait 0 $ALL_JOBS
+			puts "\tsynchronizing: $::ALL_JOBS"
+			drmaa::drmaa_synchronize $::max_wait 0 $::ALL_JOBS
 			puts "\tsynchronized with job finish"
 			check_job_state $jobid FAILED
 			drmaa::drmaa_wait $jobid $drmaa::DRMAA_TIMEOUT_NO_WAIT
@@ -631,7 +611,6 @@ proc ST_ERROR_FILE_FAILURE {} {
 }
 
 proc ST_SUBMIT_IN_HOLD_RELEASE {} {
-	global max_wait ALL_JOBS
 	if [catch {	drmaa::drmaa_init
 			set jt [create_sleeper_job_template 5 1]
 			set job_id [drmaa::drmaa_run_job $jt]
@@ -643,7 +622,7 @@ proc ST_SUBMIT_IN_HOLD_RELEASE {} {
 			puts "\tverified user hold state for job $job_id"
 			drmaa::drmaa_control $job_id RELEASE
 			puts "\treleased user hold state for job $job_id"
-			drmaa::drmaa_synchronize $max_wait 0 $ALL_JOBS
+			drmaa::drmaa_synchronize $::max_wait 0 $::ALL_JOBS
 			puts "\tsynchronized with job finish"
 			check_job_state $job_id DONE
 			wait_n_jobs 1
@@ -655,7 +634,6 @@ proc ST_SUBMIT_IN_HOLD_RELEASE {} {
 }
 
 proc ST_SUBMIT_IN_HOLD_DELETE {} {
-	global max_wait ALL_JOBS
 	if [catch {	drmaa::drmaa_init
 			set jt [create_sleeper_job_template 5 1]
 			set job_id [drmaa::drmaa_run_job $jt]
@@ -667,10 +645,10 @@ proc ST_SUBMIT_IN_HOLD_DELETE {} {
 			puts "\tverified user hold state for job $job_id"
 			drmaa::drmaa_control $job_id TERMINATE
 			puts "\treleased user hold state for job $job_id"
-			drmaa::drmaa_synchronize $max_wait 0 $ALL_JOBS
+			drmaa::drmaa_synchronize $::max_wait 0 $::ALL_JOBS
 			puts "\tsynchronized with job finish"
 			check_job_state $job_id FAILED
-			if [catch {set wout [drmaa::drmaa_wait $job_id $max_wait]} result options] {
+			if [catch {set wout [drmaa::drmaa_wait $job_id $::max_wait]} result options] {
 				if {[lindex $result 1] != "NO_RUSAGE"} {
 					error_report $result $options
 					return -code error
@@ -685,10 +663,9 @@ proc ST_SUBMIT_IN_HOLD_DELETE {} {
 }
 
 proc ST_BULK_SUBMIT_IN_HOLD_SESSION_RELEASE {} {
-	global ALL_JOBS JOB_CHUNK max_wait
 	if [catch {	drmaa::drmaa_init
 			set jt [create_sleeper_job_template 5 1]
-			set jobids [drmaa::drmaa_run_bulk_jobs $jt 1 $JOB_CHUNK 1]
+			set jobids [drmaa::drmaa_run_bulk_jobs $jt 1 $::JOB_CHUNK 1]
 			puts "\tsubmitted bulk job with jobids: $jobids"
 			drmaa::drmaa_delete_job_template $jt
 			foreach jid $jobids {
@@ -701,17 +678,17 @@ proc ST_BULK_SUBMIT_IN_HOLD_SESSION_RELEASE {} {
 				#drmaa::drmaa_control $jid RELEASE	;# single release
 				#drmaa::drmaa_control $jid TERMINATE	;# single delete
 			#}
-			drmaa::drmaa_control $ALL_JOBS RELEASE		;# session release
-			#drmaa::drmaa_control $ALL_JOBS TERMINATE	;# session delete
+			drmaa::drmaa_control $::ALL_JOBS RELEASE		;# session release
+			#drmaa::drmaa_control $::ALL_JOBS TERMINATE	;# session delete
 			puts "\treleased all jobs"
 			#puts "\tterminated all jobs"
-			drmaa::drmaa_synchronize $max_wait 0 $ALL_JOBS	;# session/single release
+			drmaa::drmaa_synchronize $::max_wait 0 $::ALL_JOBS	;# session/single release
 			puts "synchronized with job finish"		;# session/single release
 			foreach jid $jobids {
 				check_job_state $jid DONE	;# single/session release
 				#check_job_state $jid FAILED	;# single/session delete
 			}
-			wait_n_jobs $JOB_CHUNK
+			wait_n_jobs $::JOB_CHUNK
 			drmaa::drmaa_exit} result options] {
 		error_report result options
 		return -code error $options
@@ -720,10 +697,9 @@ proc ST_BULK_SUBMIT_IN_HOLD_SESSION_RELEASE {} {
 }
 
 proc ST_BULK_SUBMIT_IN_HOLD_SINGLE_RELEASE {} {
-	global ALL_JOBS JOB_CHUNK max_wait
 	if [catch {	drmaa::drmaa_init
 			set jt [create_sleeper_job_template 5 1]
-			set jobids [drmaa::drmaa_run_bulk_jobs $jt 1 $JOB_CHUNK 1]
+			set jobids [drmaa::drmaa_run_bulk_jobs $jt 1 $::JOB_CHUNK 1]
 			puts "\tsubmitted bulk job with jobids: $jobids"
 			drmaa::drmaa_delete_job_template $jt
 			foreach jid $jobids {
@@ -736,12 +712,12 @@ proc ST_BULK_SUBMIT_IN_HOLD_SINGLE_RELEASE {} {
 				drmaa::drmaa_control $jid RELEASE
 			}
 			puts "\treleased all jobs"
-			drmaa::drmaa_synchronize $max_wait 0 $ALL_JOBS
+			drmaa::drmaa_synchronize $::max_wait 0 $::ALL_JOBS
 			puts "synchronized with job finish"
 			foreach jid $jobids {
 				check_job_state $jid DONE
 			}
-			wait_n_jobs $JOB_CHUNK
+			wait_n_jobs $::JOB_CHUNK
 			drmaa::drmaa_exit} result options] {
 		error_report result options
 		return -code error $options
@@ -750,10 +726,9 @@ proc ST_BULK_SUBMIT_IN_HOLD_SINGLE_RELEASE {} {
 }
 
 proc ST_BULK_SUBMIT_IN_HOLD_SESSION_DELETE {} {
-	global ALL_JOBS JOB_CHUNK max_wait
 	if [catch {	drmaa::drmaa_init
 			set jt [create_sleeper_job_template 5 1]
-			set jobids [drmaa::drmaa_run_bulk_jobs $jt 1 $JOB_CHUNK 1]
+			set jobids [drmaa::drmaa_run_bulk_jobs $jt 1 $::JOB_CHUNK 1]
 			puts "\tsubmitted bulk job with jobids: $jobids"
 			drmaa::drmaa_delete_job_template $jt
 			foreach jid $jobids {
@@ -762,12 +737,12 @@ proc ST_BULK_SUBMIT_IN_HOLD_SESSION_DELETE {} {
 				}
 			}
 			puts "\tverified user hold state for bulk job"
-			drmaa::drmaa_control $ALL_JOBS TERMINATE	;# session delete
+			drmaa::drmaa_control $::ALL_JOBS TERMINATE	;# session delete
 			puts "\tterminated all jobs"
 			foreach jid $jobids {
 				check_job_state $jid FAILED	;# single/session delete
 			}
-			wait_n_jobs $JOB_CHUNK
+			wait_n_jobs $::JOB_CHUNK
 			drmaa::drmaa_exit} result options] {
 		error_report result options
 		return -code error $options
@@ -776,10 +751,9 @@ proc ST_BULK_SUBMIT_IN_HOLD_SESSION_DELETE {} {
 }
 
 proc ST_BULK_SUBMIT_IN_HOLD_SINGLE_DELETE {} {
-	global ALL_JOBS JOB_CHUNK max_wait
 	if [catch {	drmaa::drmaa_init
 			set jt [create_sleeper_job_template 5 1]
-			set jobids [drmaa::drmaa_run_bulk_jobs $jt 1 $JOB_CHUNK 1]
+			set jobids [drmaa::drmaa_run_bulk_jobs $jt 1 $::JOB_CHUNK 1]
 			puts "\tsubmitted bulk job with jobids: $jobids"
 			drmaa::drmaa_delete_job_template $jt
 			foreach jid $jobids {
@@ -795,7 +769,7 @@ proc ST_BULK_SUBMIT_IN_HOLD_SINGLE_DELETE {} {
 			foreach jid $jobids {
 				check_job_state $jid FAILED	;# single/session delete
 			}
-			wait_n_jobs $JOB_CHUNK
+			wait_n_jobs $::JOB_CHUNK
 			drmaa::drmaa_exit} result options] {
 		error_report result options
 		return -code error $options
