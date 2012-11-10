@@ -18,6 +18,9 @@ set max_wait 3600
 # shorter names to help the reader
 set ANY_JOB	$drmaa::DRMAA_JOB_IDS_SESSION_ANY
 set ALL_JOBS	$drmaa::DRMAA_JOB_IDS_SESSION_ALL
+set NO_WAIT	$drmaa::DRMAA_TIMEOUT_NO_WAIT
+set JS_HOLD	$drmaa::DRMAA_SUBMISSION_STATE_HOLD
+set JS_ACTIVE	$drmaa::DRMAA_SUBMISSION_STATE_ACTIVE
 
 # File paths
 set SECURE_FILE "/tmp/drmaa_inaccessible_file"
@@ -47,7 +50,7 @@ proc create_sleeper_job_template {seconds in_hold} {
 			drmaa::drmaa_set_attribute $jt drmaa_remote_command $::sleeper_job
 			drmaa::drmaa_set_vector_attribute $jt drmaa_v_argv $seconds
 			if $in_hold {
-				drmaa::drmaa_set_attribute $jt drmaa_js_state $drmaa::DRMAA_SUBMISSION_STATE_HOLD
+				drmaa::drmaa_set_attribute $jt drmaa_js_state $::JS_HOLD
 			} } result options] {
 		return -code error $options
 	}
@@ -195,6 +198,42 @@ proc wait_n_jobs {njobs} {
 	}
 	puts "\twaiting for any job resulted in finished job $jobid"
 	return
+}
+
+# check single valued vector attribute value
+proc check_vector_attr {jt attr exp_val} {
+	set attr_vec [drmaa::drmaa_get_vector_attribute $jt $attr]
+	set vec_len [llength $attr_vec]
+	if {$vec_len != 1} {
+		return -code error "$attr has wrong count $vec_len, expected 1"
+	}
+	if {$attr_vec != $exp_val} {
+		return -code error "Incorrect value after change for $attr attribute"
+	}
+}
+
+# check an attribute
+proc check_attribute {jt attr exp_val} {
+	set attr_val [drmaa::drmaa_get_attribute $jt $attr]
+	if {$attr_val != $exp_val} {
+		return -code error "Incorrect value after change for $attr attribute"
+	}
+}
+
+
+proc wrong_job_finish {comment jobid stat} {
+	if [drmaa::drmaa_wifaborted $stat] {
+		return "$comment: job $jobid never ran"
+	}
+	if [drmaa::drmaa_wifexited $stat] {
+		set exit_status [drmaa::drmaa_wexitstatus $stat]
+		return "$comment: job $jobid finished regularly with exit status $exit_status"
+	}
+	if [drmaa::drmaa_wifsignaled $stat] {
+		set termsig [drmaa::drmaa_wtermsig $stat]
+		return "$comment: job $jobid finished due to signal $termsig"
+	}
+	return "$comment: job $jobid finished with unclear conditions"
 }
 
 proc ST_MULT_INIT {} {
@@ -483,7 +522,7 @@ proc ST_EXIT_STATUS {} {
 						error_report $result $options
 						return -code error $options
 					}
-					puts "job $i with job id $jobid finished"
+					puts "\tjob $i with job id $jobid finished"
 					break
 				}
 				set jobstat [lindex $wout 1]
@@ -674,19 +713,13 @@ proc ST_BULK_SUBMIT_IN_HOLD_SESSION_RELEASE {} {
 				}
 			}
 			puts "\tverified user hold state for bulk job"
-			#foreach jid $jobids {
-				#drmaa::drmaa_control $jid RELEASE	;# single release
-				#drmaa::drmaa_control $jid TERMINATE	;# single delete
-			#}
-			drmaa::drmaa_control $::ALL_JOBS RELEASE		;# session release
-			#drmaa::drmaa_control $::ALL_JOBS TERMINATE	;# session delete
+			drmaa::drmaa_control $::ALL_JOBS RELEASE
 			puts "\treleased all jobs"
 			#puts "\tterminated all jobs"
-			drmaa::drmaa_synchronize $::max_wait 0 $::ALL_JOBS	;# session/single release
-			puts "synchronized with job finish"		;# session/single release
+			drmaa::drmaa_synchronize $::max_wait 0 $::ALL_JOBS
+			puts "\tsynchronized with job finish"
 			foreach jid $jobids {
-				check_job_state $jid DONE	;# single/session release
-				#check_job_state $jid FAILED	;# single/session delete
+				check_job_state $jid DONE
 			}
 			wait_n_jobs $::JOB_CHUNK
 			drmaa::drmaa_exit} result options] {
@@ -713,7 +746,7 @@ proc ST_BULK_SUBMIT_IN_HOLD_SINGLE_RELEASE {} {
 			}
 			puts "\treleased all jobs"
 			drmaa::drmaa_synchronize $::max_wait 0 $::ALL_JOBS
-			puts "synchronized with job finish"
+			puts "\tsynchronized with job finish"
 			foreach jid $jobids {
 				check_job_state $jid DONE
 			}
@@ -737,10 +770,10 @@ proc ST_BULK_SUBMIT_IN_HOLD_SESSION_DELETE {} {
 				}
 			}
 			puts "\tverified user hold state for bulk job"
-			drmaa::drmaa_control $::ALL_JOBS TERMINATE	;# session delete
+			drmaa::drmaa_control $::ALL_JOBS TERMINATE
 			puts "\tterminated all jobs"
 			foreach jid $jobids {
-				check_job_state $jid FAILED	;# single/session delete
+				check_job_state $jid FAILED
 			}
 			wait_n_jobs $::JOB_CHUNK
 			drmaa::drmaa_exit} result options] {
@@ -763,11 +796,11 @@ proc ST_BULK_SUBMIT_IN_HOLD_SINGLE_DELETE {} {
 			}
 			puts "\tverified user hold state for bulk job"
 			foreach jid $jobids {
-				drmaa::drmaa_control $jid TERMINATE	;# single delete
+				drmaa::drmaa_control $jid TERMINATE
 			}
 			puts "\tterminated all jobs"
 			foreach jid $jobids {
-				check_job_state $jid FAILED	;# single/session delete
+				check_job_state $jid FAILED
 			}
 			wait_n_jobs $::JOB_CHUNK
 			drmaa::drmaa_exit} result options] {
@@ -777,17 +810,218 @@ proc ST_BULK_SUBMIT_IN_HOLD_SINGLE_DELETE {} {
 	return
 }
 
-proc ST_SUBMIT_POLLING_WAIT_TIMEOUT {x} {}
+proc ST_SUBMIT_POLLING_WAIT_TIMEOUT {} {
+	set timeout 5
+	if [catch {	drmaa::drmaa_init
+			set jt [create_sleeper_job_template 5 0]
+			set job_id [drmaa::drmaa_run_job $jt]
+			puts "\tsubmitted job $job_id"
+			drmaa::drmaa_delete_job_template $jt
+			while 1 {
+				if [catch {drmaa::drmaa_wait $job_id $timeout} result options] {
+					if {[lindex $result 1] != "EXIT_TIMEOUT"} {
+						error_report $result $options
+						return -code error $options
+					}
+					puts "\tstill waiting for job $job_id to finish"
+				} else {
+					break
+				}
+			}
+			puts "\tjob $job_id finished"
+			drmaa::drmaa_exit} result options] {
+		return -code error $options
+	}
+	return
+}
 
-proc ST_SUBMIT_POLLING_WAIT_ZEROTIMEOUT {x} {}
+proc ST_SUBMIT_POLLING_WAIT_ZEROTIMEOUT {} {
+	set timeout 5
+	if [catch {	drmaa::drmaa_init
+			set jt [create_sleeper_job_template 5 0]
+			set job_id [drmaa::drmaa_run_job $jt]
+			puts "\tsubmitted job $job_id"
+			drmaa::drmaa_delete_job_template $jt
+			while 1 {
+				if [catch {drmaa::drmaa_wait $job_id $::NO_WAIT} result options] {
+					if {[lindex $result 1] != "EXIT_TIMEOUT"} {
+						error_report $result $options
+						return -code error $options
+					}
+					puts "\tstill waiting for job $job_id to finish"
+					sleep $timeout
+					puts "\tslept $timeout seconds"
+				} else {
+					break
+				}
+			}
+			puts "\tjob $job_id finished"
+			drmaa::drmaa_exit} result options] {
+		return -code error $options
+	}
+	return
+}
 
-proc ST_SUBMIT_POLLING_SYNCHRONIZE_TIMEOUT {x} {}
+proc ST_SUBMIT_POLLING_SYNCHRONIZE_TIMEOUT {} {
+	set timeout 5
+	if [catch {	drmaa::drmaa_init
+			set jt [create_sleeper_job_template 5 0]
+			set job_id [drmaa::drmaa_run_job $jt]
+			puts "\tsubmitted job $job_id"
+			drmaa::drmaa_delete_job_template $jt
+			while 1 {
+				if [catch {drmaa::drmaa_synchronize $timeout 1 $job_id} result options] {
+					if {[lindex $result 1] != "EXIT_TIMEOUT"} {
+						error_report $result $options
+						return -code error $options
+					}
+					puts "\tstill trying to synchronize with job $job_id to finish"
+				} else {
+					break
+				}
+			}
+			puts "\tjob $job_id finished"
+			drmaa::drmaa_exit} result options] {
+		return -code error $options
+	}
+	return
+}
 
-proc ST_SUBMIT_POLLING_SYNCHRONIZE_ZEROTIMEOUT {x} {}
+proc ST_SUBMIT_POLLING_SYNCHRONIZE_ZEROTIMEOUT {} {
+	set timeout 5
+	if [catch {	drmaa::drmaa_init
+			set jt [create_sleeper_job_template 5 0]
+			set job_id [drmaa::drmaa_run_job $jt]
+			puts "\tsubmitted job $job_id"
+			drmaa::drmaa_delete_job_template $jt
+			while 1 {
+				if [catch {drmaa::drmaa_synchronize $::NO_WAIT 1 $job_id} result options] {
+					if {[lindex $result 1] != "EXIT_TIMEOUT"} {
+						error_report $result $options
+						return -code error $options
+					}
+					puts "\tstill trying to synchronize with job $job_id to finish"
+					sleep $timeout
+					puts "\tslept $timeout seconds"
+				} else {
+					break
+				}
+			}
+			puts "\tjob $job_id finished"
+			drmaa::drmaa_exit} result options] {
+		return -code error $options
+	}
+	return
+}
 
-proc ST_ATTRIBUTE_CHANGE {} {}
+proc ST_ATTRIBUTE_CHANGE {} {
+	if [catch {	drmaa::drmaa_init
+			puts "\tTesting change of job template attributes"
+			puts "\tGetting job template"
+			set jt [drmaa::drmaa_allocate_job_template]
+			puts "\tFilling job template for the first time"
+			set job_argv {argv1}
+			set job_env {env1}
+			set email_addr {email1}
+			drmaa::drmaa_set_attribute $jt drmaa_remote_command "job1"
+			drmaa::drmaa_set_vector_attribute $jt drmaa_v_argv $job_argv
+			drmaa::drmaa_set_attribute $jt drmaa_js_state $::JS_HOLD
+			drmaa::drmaa_set_vector_attribute $jt drmaa_v_env $job_env
+			drmaa::drmaa_set_attribute $jt drmaa_wd "/tmp1"
+			drmaa::drmaa_set_attribute $jt drmaa_job_category "category1"
+			drmaa::drmaa_set_attribute $jt drmaa_native_specification "native1"
+			drmaa::drmaa_set_vector_attribute $jt drmaa_v_email $email_addr
+			drmaa::drmaa_set_attribute $jt drmaa_block_email "1"
+			drmaa::drmaa_set_attribute $jt drmaa_start_time "11:11"
+			drmaa::drmaa_set_attribute $jt drmaa_job_name "jobname1"
+			drmaa::drmaa_set_attribute $jt drmaa_input_path ":/dev/null1"
+			drmaa::drmaa_set_attribute $jt drmaa_output_path ":/dev/null1"
+			drmaa::drmaa_set_attribute $jt drmaa_error_path ":/dev/null1"
+			drmaa::drmaa_set_attribute $jt drmaa_join_files "y"
+			puts "\tFilling job template for the second time"
+			set job_argv {2}
+			set job_env {env2}
+			set email_addr {email2}
+			drmaa::drmaa_set_attribute $jt drmaa_remote_command "job2"
+			drmaa::drmaa_set_vector_attribute $jt drmaa_v_argv $job_argv
+			drmaa::drmaa_set_attribute $jt drmaa_js_state $::JS_ACTIVE
+			drmaa::drmaa_set_vector_attribute $jt drmaa_v_env $job_env
+			drmaa::drmaa_set_attribute $jt drmaa_wd "/tmp2"
+			drmaa::drmaa_set_attribute $jt drmaa_job_category "category2"
+			drmaa::drmaa_set_attribute $jt drmaa_native_specification "native2"
+			drmaa::drmaa_set_vector_attribute $jt drmaa_v_email $email_addr
+			drmaa::drmaa_set_attribute $jt drmaa_block_email "0"
+			drmaa::drmaa_set_attribute $jt drmaa_start_time "11:22"
+			drmaa::drmaa_set_attribute $jt drmaa_job_name "jobname2"
+			drmaa::drmaa_set_attribute $jt drmaa_input_path ":/dev/null2"
+			drmaa::drmaa_set_attribute $jt drmaa_output_path ":/dev/null2"
+			drmaa::drmaa_set_attribute $jt drmaa_error_path ":/dev/null2"
+			drmaa::drmaa_set_attribute $jt drmaa_join_files "n"
+			puts "\tChecking current values of job template"
+			check_vector_attr	$jt drmaa_v_argv		$job_argv
+			check_vector_attr	$jt drmaa_v_env			$job_env
+			check_vector_attr	$jt drmaa_v_email		$email_addr
+			check_attribute		$jt drmaa_remote_command	"job2"
+			check_attribute		$jt drmaa_js_state		$::JS_ACTIVE
+			check_attribute		$jt drmaa_wd			"/tmp2"
+			check_attribute		$jt drmaa_job_category		"category2"
+			check_attribute		$jt drmaa_native_specification	"native2"
+			check_attribute		$jt drmaa_block_email		"0"
+			check_attribute		$jt drmaa_start_time		"11:22"
+			check_attribute		$jt drmaa_job_name		"jobname2"
+			check_attribute		$jt drmaa_input_path		":/dev/null2"
+			check_attribute		$jt drmaa_output_path		":/dev/null2"
+			check_attribute		$jt drmaa_error_path		":/dev/null2"
+			check_attribute		$jt drmaa_join_files		"n"
+			puts "\tAll attributes verified OK"
+			drmaa::drmaa_delete_job_template $jt
+			drmaa::drmaa_exit} result options] {
+		error_report $result $options
+		return -code error $options
+	}
+	return
+}
 
-proc ST_SUBMIT_SUSPEND_RESUME_WAIT {x} {}
+proc ST_SUBMIT_SUSPEND_RESUME_WAIT {} {
+	if [catch {	drmaa::drmaa_init
+			set jt [create_sleeper_job_template 30 0]
+			set jobid [drmaa::drmaa_run_job $jt]
+			puts "submitted job $jobid"
+			drmaa::drmaa_delete_job_template $jt
+			while 1 {
+				set job_state [drmaa::drmaa_job_ps $jobid]
+				if {$job_state == "RUNNING"} {
+					break
+				} else {
+					puts "\tWaiting forever to get job state DRMAA_PS_RUNNING ..."
+					sleep 5
+				}
+			}
+			puts "\tjob $jobid is now running"
+			drmaa::drmaa_control $jobid SUSPEND
+			puts "\tsuspended job $jobid"
+			check_job_state $jobid USER_SUSPENDED
+			puts "\tverified suspend was done for job $jobid"
+			drmaa::drmaa_control $jobid RESUME
+			puts "\tresumed job $jobid"
+			if [catch {check_job_state $jobid RUNNING}] {
+				check_job_state $jobid FAILED
+			}
+			puts "\tverified resume was done for job $jobid"
+			set wout [drmaa::drmaa_wait $jobid $::max_wait]
+			set stat [lindex $wout 1]
+			set exited [drmaa::drmaa_wifexited $stat]
+			if $exited {set exit_status [drmaa::drmaa_wexitstatus $stat]}
+			if {! $exited || $exit_status != 0} {
+				return -code error [wrong_job_finish "expected regular job end" $jobid $stat]
+			}
+			puts "\tjob $jobid finished as expected"
+			drmaa::drmaa_exit} result options] {
+		error_report $result $options
+		return -code error $options
+	}
+	return
+}
 
 proc ST_USAGE_CHECK {x} {}
 
