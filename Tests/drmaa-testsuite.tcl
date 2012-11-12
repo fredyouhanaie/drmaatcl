@@ -1055,7 +1055,7 @@ proc ST_SUBMIT_SUSPEND_RESUME_WAIT {} {
 	if [catch {	drmaa::drmaa_init
 			set jt [create_sleeper_job_template 30 0]
 			set jobid [drmaa::drmaa_run_job $jt]
-			puts "submitted job $jobid"
+			puts "\tsubmitted job $jobid"
 			drmaa::drmaa_delete_job_template $jt
 			while 1 {
 				set job_state [drmaa::drmaa_job_ps $jobid]
@@ -1266,8 +1266,8 @@ proc ST_BULK_SUBMIT_INCRPH {} {
 	if [catch {	drmaa::drmaa_init
 			set jt [create_sleeper_job_template 5 0]
 			drmaa::drmaa_set_attribute $jt drmaa_output_path $outfile
-			set jobids [drmaa::drmaa_run_bulk_jobs $jt 10 [expr $::JOB_CHUNK+10] 1]
-			puts "submitted $::JOB_CHUNK bulk job with jobids: $jobids"
+			set jobids [drmaa::drmaa_run_bulk_jobs $jt 10 [expr $::JOB_CHUNK+10-1] 1]
+			puts "\tsubmitted $::JOB_CHUNK bulk job with jobids: $jobids"
 			drmaa::drmaa_delete_job_template $jt
 			wait_n_jobs $::JOB_CHUNK
 			for {set i 10} {$i<$::JOB_CHUNK+10} {incr i} {
