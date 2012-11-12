@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# this is the shell version of the same program from the drmaa testsuite
+
+exit $1

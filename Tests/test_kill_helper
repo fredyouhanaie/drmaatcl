@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# this is the shell version of the same program from the drmaa testsuite
+
+kill -$1 $$
+while :
+do
+	sleep 10
+done
+
