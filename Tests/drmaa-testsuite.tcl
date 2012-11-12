@@ -305,20 +305,15 @@ proc wrong_job_finish {comment jobid stat} {
 }
 
 proc ST_MULT_INIT {} {
-	# init - should succeed
-	if [catch {drmaa::drmaa_init} result] {
-		return -code error $result
-	}
-	# init again should fail
-	if {[catch {drmaa::drmaa_init} result]} {
-		if {[lindex $result 1] != "ALREADY_ACTIVE_SESSION"} {
-			return -code error $result
-		}
-	} else {
-		return -code error "second drmaa_init succeeded!"
-	}
-	# exit
-	if [catch {drmaa::drmaa_exit} result] {
+	if [catch {	drmaa::drmaa_init
+			if {[catch {drmaa::drmaa_init} result]} {
+				if {[lindex $result 1] != "ALREADY_ACTIVE_SESSION"} {
+					return -code error $result
+				}
+			} else {
+				return -code error "second drmaa_init succeeded!"
+			}
+			drmaa::drmaa_exit} result] {
 		return -code error $result
 	}
 	return
@@ -404,18 +399,15 @@ proc ST_CONTACT {} {
 }
 
 proc ST_EMPTY_SESSION_WAIT {} {
-	if [catch {drmaa::drmaa_init} result] {
-		return -code error $result
-	}
-	if [catch {drmaa::drmaa_wait $drmaa::DRMAA_JOB_IDS_SESSION_ANY $::max_wait
-			} result] {
-		if {[lindex $result 1] != "INVALID_JOB"} {
-			return -code error $result
-		}
-	} else {
-		return -code error "drmaa_wait returned success!"
-	}
-	if [catch {drmaa::drmaa_exit} result] {
+	if [catch {	drmaa::drmaa_init
+			if [catch {drmaa::drmaa_wait $::ANY_JOB $::max_wait} } result] {
+				if {[lindex $result 1] != "INVALID_JOB"} {
+					return -code error $result
+				}
+			} else {
+				return -code error "drmaa_wait returned success!"
+			}
+			drmaa::drmaa_exit} result] {
 		return -code error $result
 	}
 	return
