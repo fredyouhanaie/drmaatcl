@@ -1,4 +1,8 @@
 
+package require drmaa
+
+set myname [info script]
+
 # drmaatcl test suit.
 # based on DRMAA_TEST_SUITE_VERSION "1.7.2"
 
@@ -71,13 +75,33 @@ proc create_exit_job_template {} {
 	return $jt
 }
 
+proc wait_n_jobs {njobs} {
+	set some_error 0
+	for {set i 0} {$i<$njobs} {incr i} {
+		while [catch {set wout [drmaa::drmaa_wait $::ANY_JOB $::max_wait]} result options] {
+			if {[lindex $result 1]=="TRY_LATER"} {
+				puts "\tretry ..."
+				sleep 1
+				continue
+			} else {
+				return -code error $options
+			}
+		}
+		set jobid [lindex $wout 0]
+		puts "\twaiting for any job resulted in finished job $jobid"
+		#break;
+	}
+	puts "\tWaited for $njobs jobs"
+	return
+}
+
 # wait for all ST jobs
 proc wait_all_st_jobs {njobs} {
 	puts "\twaiting for $njobs jobs"
 	while {$njobs>0} {
 		if [catch {set wout [drmaa::drmaa_wait $::ANY_JOB $::max_wait]} result options] {
 			if {[lindex $result 1] != "INVALID_JOB"} {
-				return $options
+				return -code error $options
 			}
 			break
 		}
@@ -85,7 +109,24 @@ proc wait_all_st_jobs {njobs} {
 		puts "\twaited job >$jobid<"
 		incr njobs -1
 	}
-	puts "\twaited for last job"
+	puts "\twaited for the last job"
+	return
+}
+
+# wait for all MT jobs
+proc wait_all_mt_jobs {} {
+	puts "\twaiting for all multithreaded jobs"
+	while 1 {
+		if [catch {set wout [drmaa::drmaa_wait $::ANY_JOB $::max_wait]} result options] {
+			if {[lindex $result 1] != "INVALID_JOB"} {
+				return -code error $options
+			}
+			break
+		}
+		set jobid [lindex $wout 0]
+		puts "\twaited job >$jobid<"
+	}
+	puts "\twaited for the last job"
 	return
 }
 
@@ -117,6 +158,52 @@ proc submit_sleeper_jobs {seconds in_hold njobs} {
 		return -code error $options
 	}
 	return $all_jobids
+}
+
+# submit individual submit sleeper jobs
+# mt_exit=1 for MT_EXIT_DURING_SUBMIT_OR_WAIT and MT_EXIT_DURING_SUBMIT
+proc submit_sleeper_thread {njobs mt_exit} {
+	set all_jobids {}
+	if [catch {	set jt [create_sleeper_job_template 10 0]
+			for {set i 0} {$i<$njobs} {incr i} {
+				while [catch {set jobid [drmaa::drmaa_run_job $jt]} result options] {
+					set errno [lindex $result 1]
+					puts "\tfailed submitting job: $errno"
+					if {$errno == "TRY_LATER"} {
+						puts "retry ..."
+						sleep 1
+						continue
+					} elseif {$errno == "NO_ACTIVE_SESSION"} {
+						if $mt_exit {
+							set jobid 0
+							break
+						} else {
+							return -code error $options
+						}
+					} else {
+						return -code error $options
+					}
+				}
+				if {$jobid==0} {
+					puts "\tunable to submit job"
+				} else {
+					lappend all_jobids $jobid
+					puts "\tsubmitted job >$jobid<"
+				}
+			}
+			drmaa::drmaa_delete_job_template $jt} result options] {
+		return -code error $options
+	}
+	return $all_jobids
+}
+
+proc submit_and_wait_thread {njobs} {
+	if [catch {	submit_sleeper_thread $njobs 0 
+			wait_all_st_jobs $njobs} result options] {
+		error_report $result $options
+		return -code error $options
+	}
+	return
 }
 
 # wait for individual jobs
@@ -182,23 +269,6 @@ proc check_job_state {jobid exp_jobstate} {
 	return -code error -errorinfo "Too many drmaa_job_ps retries, while $exp_jobstate was expected."
 }
 
-proc wait_n_jobs {njobs} {
-	for {set i 0} {$i<$njobs} {incr i} {
-		while {1} {
-			if [catch {set wout [drmaa::drmaa_wait $::ANY_JOB $::max_wait]} result options] {
-				if {[lindex $result 1]=="TRY_LATER"} {
-					puts "\tretry ..."
-					continue
-				}
-				return -code error $options
-			}
-			set jobid [lindex $wout 0]
-			break;
-		}
-	}
-	puts "\twaiting for any job resulted in finished job $jobid"
-	return
-}
 
 # check single valued vector attribute value
 proc check_vector_attr {jt attr exp_val} {
@@ -514,17 +584,16 @@ proc ST_EXIT_STATUS {} {
 			drmaa::drmaa_delete_job_template $jt
 			for {set i 0} {$i<126} {incr i} {
 				set jobid [lindex $alljobs $i]
-				while 1 {
-					if [catch {set wout [drmaa::drmaa_wait $jobid $::max_wait]} res opts] {
-						if {[lindex $res 1] == "DRM_COMMUNICATIONS_FAILURE"} {
-							sleep(1)
-						}
+				while [catch {set wout [drmaa::drmaa_wait $jobid $::max_wait]} res opts] {
+					if {[lindex $res 1] == "DRM_COMMUNICATIONS_FAILURE"} {
+						sleep 1 
+						continue
+					} else {
 						error_report $result $options
 						return -code error $options
 					}
-					puts "\tjob $i with job id $jobid finished"
-					break
 				}
+				puts "\tjob $i with job id $jobid finished"
 				set jobstat [lindex $wout 1]
 				if {! [drmaa::drmaa_wifexited $jobstat]} {
 					return -code error "Job $jobid did not exit cleanly"
@@ -1023,23 +1092,201 @@ proc ST_SUBMIT_SUSPEND_RESUME_WAIT {} {
 	return
 }
 
-proc ST_USAGE_CHECK {x} {}
+proc ST_USAGE_CHECK {} {
+	if [catch {	drmaa::drmaa_init
+			set jt [create_exit_job_template]
+			puts "\tRunning job"
+			set jobid [drmaa::drmaa_run_job $jt]
+			drmaa::drmaa_delete_job_template $jt
+			puts "\tWaiting for job $jobid to complete"
+			set wout [drmaa::drmaa_wait $jobid $::max_wait]
+			puts "\tJob with job id $jobid finished"
+			set rusage [lrange $wout 2 end]
+			if {[llength $rusage] == 0} {
+				return -code error "no rusage from drmaa_wait($jobid) and no DRMAA_ERRNO_NO_RUSAGE"
+			}
+			foreach ru $rusage {
+				puts "\t$ru"
+			}
+			drmaa::drmaa_exit} result options] {
+		error_report $result $options
+		return -code error $options
+	}
+	return
+}
 
-proc ST_UNSUPPORTED_ATTR {} {}
+proc ST_UNSUPPORTED_ATTR {} {
+	if [catch {	drmaa::drmaa_init
+			set jt [drmaa::drmaa_allocate_job_template]
+			if [catch {drmaa::drmaa_set_attribute $jt "blah" "blah1"} result options] {
+				if {[lindex $result 1] != "INVALID_ARGUMENT"} {
+					error_report $result $options
+					return -code error $options
+				}
+			} else {
+				return -code error  "drmaa_set_attribute allowed invalid attribute"
+			}
+			drmaa::drmaa_exit} result options] {
+		error_report $result $options
+		return -code error $options
+	}
+	return
+}
 
-proc ST_UNSUPPORTED_VATTR {} {}
+proc ST_UNSUPPORTED_VATTR {} {
+	if [catch {	drmaa::drmaa_init
+			set jt [drmaa::drmaa_allocate_job_template]
+			if [catch {drmaa::drmaa_set_vector_attribute $jt "blah" "blah1" "blah2"} result options] {
+				if {[lindex $result 1] != "INVALID_ARGUMENT"} {
+					error_report $result $options
+					return -code error $options
+				}
+			} else {
+				return -code error  "drmaa_set_vector_attribute allowed invalid attribute"
+			}
+			drmaa::drmaa_exit} result options] {
+		error_report $result $options
+		return -code error $options
+	}
+	return
+}
 
-proc MT_SUBMIT_WAIT {x} {}
+proc MT_SUBMIT_WAIT {} {
+	package require Thread	;# only needed for the MT_* procs
+	if [catch {	drmaa::drmaa_init
+			set all_tids {}
+			set thread_script "source $::myname; submit_sleeper_thread $::JOB_CHUNK 0"
+			for {set i 0} {$i<$::NTHREADS} {incr i} {
+				lappend all_tids [thread::create -joinable "$thread_script"]
+			}
+			foreach tid $all_tids {thread::join $tid}
+			wait_all_mt_jobs
+			drmaa::drmaa_exit} result options] {
+		error_report $result $options
+		return -code error $options
+	}
+	return
+}
 
-proc MT_SUBMIT_BEFORE_INIT_WAIT {x} {}
+proc MT_SUBMIT_BEFORE_INIT_WAIT {} {
+	package require Thread	;# only needed for the MT_* procs
+	if [catch {	#delayed#drmaa::drmaa_init
+			set all_tids {}
+			set thread_script "source $::myname; submit_sleeper_thread $::JOB_CHUNK 0"
+			for {set i 0} {$i<$::NTHREADS} {incr i} {
+				lappend all_tids [thread::create -joinable "$thread_script"]
+			}
+			sleep 5
+			drmaa::drmaa_init
+			foreach tid $all_tids {thread::join $tid}
+			wait_all_mt_jobs
+			drmaa::drmaa_exit} result options] {
+		error_report $result $options
+		return -code error $options
+	}
+	return
+}
 
-proc MT_EXIT_DURING_SUBMIT {x} {}
+proc MT_EXIT_DURING_SUBMIT {} {
+	package require Thread	;# only needed for the MT_* procs
+	if [catch {	drmaa::drmaa_init
+			set all_tids {}
+			set thread_script "source $::myname; submit_sleeper_thread $::JOB_CHUNK 1"
+			for {set i 0} {$i<$::NTHREADS} {incr i} {
+				lappend all_tids [thread::create -joinable "$thread_script"]
+			}
+			sleep 1
+			drmaa::drmaa_exit
+			puts "\tdrmaa_exit() succeeded" } result options] {
+		error_report $result $options
+		return -code error $options
+	}
+	catch {foreach tid $all_tids {thread::join $tid}}
+	return
+}
 
-proc MT_SUBMIT_MT_WAIT {x} {}
+proc MT_SUBMIT_MT_WAIT {} {
+	package require Thread	;# only needed for the MT_* procs
+	if [catch {	drmaa::drmaa_init
+			set all_tids {}
+			set thread_script "source $::myname; submit_and_wait_thread $::JOB_CHUNK"
+			for {set i 0} {$i<$::NTHREADS} {incr i} {
+				lappend all_tids [thread::create -joinable "$thread_script"]
+			}
+			foreach tid $all_tids {thread::join $tid}
+			drmaa::drmaa_exit} result options] {
+		error_report $result $options
+		return -code error $options
+	}
+	return
+}
 
-proc MT_EXIT_DURING_SUBMIT_OR_WAIT {x} {}
+proc MT_EXIT_DURING_SUBMIT_OR_WAIT {} {
+	package require Thread	;# only needed for the MT_* procs
+	if [catch {	drmaa::drmaa_init
+			set thread_script "source $::myname; submit_and_wait_thread $::JOB_CHUNK"
+			for {set i 0} {$i<$::NTHREADS} {incr i} {
+				lappend all_tids [thread::create -joinable "$thread_script"]
+			}
+			sleep 2
+			puts "\tNow calling drmaa_exit, while submitter threads are waiting ..."
+			drmaa::drmaa_exit
+			puts "\tdrmaa_exit succeeded"
+			foreach tid $all_tids {thread::join $tid}} result options] {
+		error_report $result $options
+		return -code error $options
+	}
+	return
+}
 
-proc ST_GET_NUM_JOBIDS {x} {}
+proc ST_GET_NUM_JOBIDS {} {
+	if [catch {	drmaa::drmaa_init
+			set jt [create_sleeper_job_template 5 0]
+			for {set i 0} {$i<$::NBULKS} {incr i} {
+				set jobids [drmaa::drmaa_run_bulk_jobs $jt 1 $::JOB_CHUNK 1]
+				puts "\tsubmitted $::JOB_CHUNK bulk job with jobids: $jobids"
+				set njobs [llength $jobids]
+				if {$njobs != $::JOB_CHUNK} {
+					return -code error "run_bulk_jobs returned $njobs jobids, expected $::JOB_CHUNK"
+				}
+			}
+			drmaa::drmaa_delete_job_template $jt
+			wait_n_jobs [expr $::NBULKS * $::JOB_CHUNK]
+			drmaa::drmaa_exit} result options] {
+		error_report $result $options
+		return -code error $options
+	}
+	return
+}
 
-proc ST_BULK_SUBMIT_INCRPH {x} {}
+proc ST_BULK_SUBMIT_INCRPH {} {
+	set outfile {:$drmaa_hd_ph$/tmp_out$drmaa_incr_ph$}
+	set homedir $::env(HOME)
+	#set homedir "/home/fy"
+	if [catch {	drmaa::drmaa_init
+			set jt [create_sleeper_job_template 5 0]
+			drmaa::drmaa_set_attribute $jt drmaa_output_path $outfile
+			set jobids [drmaa::drmaa_run_bulk_jobs $jt 10 [expr $::JOB_CHUNK+10] 1]
+			puts "submitted $::JOB_CHUNK bulk job with jobids: $jobids"
+			drmaa::drmaa_delete_job_template $jt
+			wait_n_jobs $::JOB_CHUNK
+			for {set i 10} {$i<$::JOB_CHUNK+10} {incr i} {
+				set fname "${homedir}/tmp_out${i}"
+				if [file exists $fname] {
+					puts "\tFound expected output file $fname"
+					if [catch {file delete $fname} result] {
+						puts "could not remove temp file $fname:\n\t$result"
+					}
+				} else {
+					return -code error "could not find expected otput file: $fname"
+				}
+			}
+
+			drmaa::drmaa_exit} result options] {
+		error_report $result $options
+		return -code error $options
+	}
+	return
+}
+
 
