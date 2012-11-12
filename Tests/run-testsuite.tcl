@@ -5,7 +5,8 @@
 #
 
 package require tcltest
-tcltest::configure -verbose bpstel
+# full verbosity = {body start skip pass error line}
+tcltest::configure -verbose {body start skip pass error line}
 
 source drmaa-testsuite.tcl
 
