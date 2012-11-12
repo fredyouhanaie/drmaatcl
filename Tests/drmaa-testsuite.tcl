@@ -1159,6 +1159,7 @@ proc MT_SUBMIT_WAIT {} {
 			for {set i 0} {$i<$::NTHREADS} {incr i} {
 				lappend all_tids [thread::create -joinable "$thread_script"]
 			}
+			puts "\twaiting for threads to complete"
 			foreach tid $all_tids {thread::join $tid}
 			wait_all_mt_jobs
 			drmaa::drmaa_exit} result options] {
@@ -1201,6 +1202,7 @@ proc MT_EXIT_DURING_SUBMIT {} {
 		error_report $result $options
 		return -code error $options
 	}
+	puts "\twaiting for threads to complete"
 	catch {foreach tid $all_tids {thread::join $tid}}
 	return
 }
@@ -1232,6 +1234,7 @@ proc MT_EXIT_DURING_SUBMIT_OR_WAIT {} {
 			puts "\tNow calling drmaa_exit, while submitter threads are waiting ..."
 			drmaa::drmaa_exit
 			puts "\tdrmaa_exit succeeded"
+			puts "\twaiting for threads to complete"
 			foreach tid $all_tids {thread::join $tid}} result options] {
 		error_report $result $options
 		return -code error $options
@@ -1278,7 +1281,7 @@ proc ST_BULK_SUBMIT_INCRPH {} {
 						puts "could not remove temp file $fname:\n\t$result"
 					}
 				} else {
-					return -code error "could not find expected otput file: $fname"
+					return -code error "could not find expected output file: $fname"
 				}
 			}
 
