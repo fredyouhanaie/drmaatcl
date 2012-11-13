@@ -282,13 +282,22 @@ or
 \.{make edit\_cache}
 \smallskip
 \.{make edit\_cache} will present a screen with a list of
-parameters that can be modified, including the install directory,
+parameters that can be modified, including the install directory root,
 \.{CMAKE\_INSTALL\_PREFIX}.
 
 Now you can build and install:
 \smallskip
 \.{make}\par
 \.{make install}
+\smallskip
+The installation will copy \.{drmaash} to the \.{bin/} directory,
+\.{libdrmaatcl.so} to the \.{lib/} directory and \.{pkgIndex.tcl}
+to the \.{lib/tcltk/drmaa} directory. All paths are relative to
+\.{CMAKE\_INSTALL\_PREFIX}, with \.{/usr/local/} as the default setting.
+
+To generate the PDF document:
+\smallskip
+\.{make doc}
 \smallskip
 
 @*1The Command Reference. The drmaatcl commands made available to users
