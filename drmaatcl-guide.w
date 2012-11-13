@@ -745,3 +745,6 @@ with {\tt drmaa\_wait} and finish off.
 }
 }
 
+@ There also a good variety of example snippets in the test suite,
+\.{Tests/drmaa-testsuite.tcl}.
+
