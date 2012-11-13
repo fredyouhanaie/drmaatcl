@@ -60,7 +60,7 @@ is ensured that the DRMAA library for the specific DRM, normally called
 the \.{LD\_LIBRARY\_PATH} environment variable appropriately.
 
 The two main documents used for this implementation are {\tt DRMAA 1.0
-Grid Recommendation (GFD.133)} and \.{DRMAA C Binding v1.0}. Both of
+Grid Recommendation (GFD.133)} and \.{DRMAA \Cee\ Binding v1.0}. Both of
 these can be downloaded from the DRMAA web site.
 
 @ Tcl (Tool Command Language) is a scripting language that was created
@@ -69,26 +69,26 @@ release. For a complete history of the language please see the web page
 \url{http://tcl.tk/about/history.html}
 
 Tcl is still going strong and currently there is a large number of Tcl
-applications in existence. This library is being provided in the hope
+applications in existence. This extension is being provided in the hope
 that it may bring additional benefit to the existing, as well as future,
 Tcl code base, especially those in grid/cluster computing environments.
 
 Description and references relating to the Tcl language can be found on
 the Tcl/Tk community web site, \url{http://tcl.tk}.
 
-@ The programming language used in creating the library is \.{cweb},
-which consists of standard C code together with the annotations describing
+@ The programming language used in creating the extension is \.{cweb},
+which consists of standard \Cee\ code together with the annotations describing
 the code segments. This is known as Literate Programming. The web site
 \url{http://literateprogramming.com} is a good starting point for those
 not familiar with the concept.
 
 Literate Programming allows one to produce from a single source file a
-typeset documentation (this note) as well as a compilable C source code.
+typeset documentation (this note) as well as a compilable \Cee\ source code.
 
-@ The current implementation provides a basic access to the C API
-routines, but with a typical Tcl like interface. However, an object
-oriented interface based on this library and written in pure Tcl will
-be provided in due course.
+@ The current implementation provides a basic access to the \Cee\ API
+routines, but with a typical Tcl like interface. Using this extension
+one can create an pure Tcl based package that resembles the IDL
+specification.
 
 The relationship between \.{drmaatcl} and other DRMAA components is
 illustrated below:
@@ -100,7 +100,7 @@ library. The \.{drmaatcl} extension, once built and installed, will
 have its own library, \.{libdrmaatcl.so}, which will access the vendor
 supplied library. Tcl scripts will have access to the Tcl extensions
 via \.{libdrmaatcl.so}, either via \.{drmaash}, or via other Tcl shells
-such as \.{tclsh} or \.{wish} via the \.{package require drmaa} command.
+such as \.{tclsh} or \.{wish} with the \.{package require drmaa} command.
 
 @ This document provides guidance to those requiring access to DRMAA API
 from Tcl scripts. This can be found in the early part of the document
@@ -111,12 +111,12 @@ For those who prefer to see how everything has been put together, the
 source code can be found following the user guide. The source code will
 also help those who are unsure of how a particular command is parsed
 and executed. It is assumed that the reader is already familiar with
-the Tcl C API.
+the Tcl \Cee\ API.
 
 @*1Implementation Notes. The implementation provides a Tcl extension
-library using the DRMAA C bindings specification. However, the Tcl
+library using the DRMAA \Cee\ bindings specification. However, the Tcl
 commands made available to the user are closer to the definitions in
-the API. The library has been hand crafted from ground up, rather than
+the API. The extension has been hand crafted from ground up, rather than
 using an automatic code generator such as SWIG.
 
 @ {\bf Commands}. Each DRMAA call is defined as a Tcl command. The
@@ -142,7 +142,7 @@ three element list such as the following example:
 
 \.{errorInfo} will contain the text string returned in the
 \.{drmaa\_context\_error\_buf}, or \.{error\_diagnosis} parameter of
-the C function. In fact \.{errorInfo} will contain a multi-line stack
+the \Cee\ function. In fact \.{errorInfo} will contain a multi-line stack
 trace, the top line of which will be the additional diagnosis string.
 
 @ {\bf Multi-threading}. \.{libdrmaa} implementations are required to
@@ -154,7 +154,7 @@ DRMAA library, or the higher level user script.
 
 In order to have multi-threaded Tcl scripts, the underlying Tcl Core
 library needs to support it. The variable \.{\$tcl\_platform(threaded)}
-can be used to confirm if the Tcl implementation supports multi-threading.
+can be used to confirm if your local Tcl implementation supports multi-threading.
 
 @ {\bf Command Outputs}. The \.{OUT} values specified in the API, if
 any, are returned as the output of the command. These, depending on
@@ -168,7 +168,7 @@ it will be assigned to the Tcl variable \.{errorInfo}. See the earlier
 section on error handling.
 
 @ {\bf Job Templates}. Newly allocated job templates will be identified
-by symbolic handles generated from the opaque C structure pointer.
+by symbolic handles generated from the opaque \Cee\ structure pointer.
 
 @ {\bf Job Attributes.} These are treated as character strings that
 are passed to the underlying DRMS. No validation is performed by the
@@ -186,54 +186,110 @@ On startup \.{drmaash} will evaluate the file \.{\~/.drmaashrc},
 if present. Just like \.{tclsh} and \.{wish}, this file will not be
 evaluated if a script file is present on the command line.
 
-@ {\bf Testing}. drmaatcl has been tested using the \.{tcltest}
-package. In future the test suite will be extended to include all of
-(or as much of) the official DRMAA compliance test suite.
+@ {\bf Testing}. drmaatcl has been tested using a test suite that is
+based on (almost identical to) the \Cee\ API test suite. The relevant scripts
+can be found in the \.{Tests} subdirectory.
 
-This will allow one to confirm that the Tcl library is compliant,
-provided that the underlying DRMAA implementation is also compliant.
+All the \.{ST\_*} and \.{MT\_*} test cases have been implemented as Tcl
+procedures and can be found in the \.{Tests/drmaa-testsuite.tcl} file.
 
-@* Installation notes. With the current (alpha) version, the build and
-installation involves a number of manual steps that include the possible
-editing of the supplied \.{Makefile}. These steps will be replaced with
-autoconf scripts in the next release.
+Two wrapper scripts have been provided to run the tests,
+\.{run-testsuite.tcl} and \.{selective-test.tcl}. The former will
+run all the tests, e.g. \.{drmaash run-testsuite.tcl}. While the
+latter will only run tests that are listed on the command line, e.g.
+\.{drmaash selective-test.tcl ST\_MULT\_INIT ST\_MULT\_EXIT}
 
-No binary files are being supplied, so you will need to build the
-library from source.
+There are also two further shell scripts that provide the same
+fuctionality as their counterparts in the original test suite, these are
+\.{test\_exit\_helper} and \.{test\_kill\_helper}. These files should be
+copied to the \.{/usr/local/bin} directory on the exec nodes of the
+DRMS, or if placed elsewhere, the pathnames at the top of the test suite,
+\.{drmaa-testsuite.tcl}, should be adjusted accordingly.
 
-The whole library is created from the five cweb files, {\tt
+The test suite has only been run in a Linux environment. Two DRMS
+implementations were tested against, SLURM 2.4.3 with PSNC DRMAA for
+SLURM 1.0.6, and Grid Engine OGS/GE 2011.11p1 with its own DRMAA
+implementation. The drmaatcl test results matched those of the DRMAA test
+suite, that is both test suites (Tcl and C) failed on the same test
+cases. The failures were due to local DRMS configurations, such as job
+suspension requiring admin host privileges for GE, and the same test
+needing to run as user slurm for SLURM.
+
+@* Installation notes. The package is only available in source form and
+can be downloaded from github.
+
+Cmake is used to generate the actual make files that perform the build
+and install tasks. This is a cross-platform makefile generator that is
+used by many open source projects.
+
+The whole extension is created from the five cweb files, {\tt
 drmaatcl-main.w}, {\tt drmaatcl-guide.w}, {\tt drmaatcl-data.w}, {\tt
 drmaatcl-code.w} and {\tt boilerplate.w}. In fact the latter four are
-brought in (included with {\bf @@i}) via {\tt drmaatcl-main.w}.
+brought in (included with {\bf @@i}) by {\tt drmaatcl-main.w}.
 
-From these files we generate a two C files, via {\tt ctangle}, and a
-single \tex file, via {\tt cweave}. However, these two files have been
-supplied, so you do not need to install {\tt cweb} on your system.
+From these files we generate two \Cee\ files, via {\tt ctangle}, and a single
+\tex file, via {\tt cweave}.
 
-The C files, {\bf drmaash.c} and {\bf drmaatcl-main.c}, is then compiled
-and linked with the Tcl library to give you the Tcl extension {\tt
-libdrmaatcl.so}.
+The \Cee\ files, {\bf drmaash.c} and {\bf drmaatcl-main.c}, are then
+compiled and linked with the Tcl library to give you the Tcl extension
+{\tt libdrmaatcl.so}.
 
 The \tex file is used to produce the current document, for example via
 {\tt pdftex}.
 
 @ {\bf Prerequisites}. The following packages are required:
 
-{\tt cweb}, only if you need to regenerate the C and/or \tex files. You
-may find this in one of the packages for your OS distribution, for example
-for ubuntu cweb is included in {\tt texlive-extra-utils}.
-Or, you may download, build and install it from
-\url{http://literateprogramming.com}.
+{\tt cmake}, available as installable package on most Linux distros, or
+alternatively it can be downloaded from \url{http://cmake.org}. You
+should also install \.{ccmake}, which is a curses based configuration
+tool for cmake.
+
+{\tt cweb}, is needed to generate the \Cee\ code from the
+\.{*.w} files. If you already have \tex installed, you
+may also have \.{cweb}, otherwise it can be downloaded from
+\url{http://literateprogramming.com}. The main program needed is
+\.{ctangle}, which creates the \Cee\ code.
 
 {\bf Tcl core library and header files}. Although the header files are
 only needed for the compilation phase. The current version of {\tt
-drmaatcl} was developed with Tcl 8.5.6.
+drmaatcl} was developed with Tcl 8.5.8.
 
-{\bf C compiler and linker}. The library was developed and tested using
-{\tt gcc 4.3.3}. Other ANSI C compilers should work too.
+{\bf \Cee\ compiler and linker}. The extension was developed and tested using
+{\tt gcc 4.4.5}. Other ANSI \Cee\ compilers should work too.
 
 {\tt libdrmaa} implemetation files, {\tt libdrmaa.so} and {\tt drmaa.h}. The
 latter is only required for the build phase.
+
+@ {\bf Installation}. Once all the packages are available, it only takes
+a few steps to build the extension, assuming you are at the root directory
+of the package:
+
+Create a directory for the build, this is not necessary, but it is tidier:
+\smallskip
+\.{mkdir -v build}\par
+\.{cd build}
+\smallskip
+
+Generate the make files. You would need to supply the locations of the
+DRMAA include and library files, these can either be supplied on the
+\.{cmake} command line or configured afterwards:
+\smallskip
+\.{cmake -DDRMAA\_INC\_DIR=<incdir> -DDRMAA\_LIB\_DIR=<libdir> ..}
+\smallskip
+or
+\smallskip
+\.{cmake ..}\par
+\.{make edit\_cache}
+\smallskip
+\.{make edit\_cache} will present a screen with a list of
+parameters that can be modified, including the install directory,
+\.{CMAKE\_INSTALL\_PREFIX}.
+
+Now you can build and install:
+\smallskip
+\.{make}\par
+\.{make install}
+\smallskip
 
 @*1The Command Reference. The drmaatcl commands made available to users
 are listed below in alphabetical order.
@@ -347,8 +403,8 @@ output of the \.{drmaa\_wait} command. Returns an integer.}
 
 %%\hrule
 
-@*1Examples. Here are some examples to help the reader started with
-the library. All the examples shown here can be found in the \.{examples}
+@*1Examples. Here are some examples to help the reader get started with
+the extension. All the examples shown here can be found in the \.{examples}
 directory of the \.{drmaatcl} distribution.
 
 @ {\tt example00-drmaashrc.tcl}. If you have Tcl 8.5 or higher, then
@@ -467,7 +523,7 @@ usage key/value pairs.
 }
 \medskip
 
-The command Tcl {\tt lindex \$wout 0} will return the job id,
+The Tcl command {\tt lindex \$wout 0} will return the job id,
 while the command {\tt lindex \$wout 1} will return the job status.
 The latter can be used as input to the set of commands that interpret
 the return status, for example
@@ -495,8 +551,8 @@ array named {\tt rus}, from which various elements are extracted.
 }
 }
 
-@ {\tt ex-c-example.tcl}. Here is the Tcl version of the C program
-example in the DRMAA C API, translated to Tcl almost verbatim. The code
+@ {\tt ex-c-example.tcl}. Here is the Tcl version of the \Cee\ program
+example in the DRMAA \Cee\ API, translated to Tcl almost verbatim. The code
 is shown in multiple paragraphs, however, the real script is just the
 concatenation of the code segments described below.
 

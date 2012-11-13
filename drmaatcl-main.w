@@ -64,14 +64,7 @@
 }
 
 %% \url will create the proper links for the PDF files.
-\def\url#1{
-	\ifx\pdfoutput\undefined
-		\.{#1}
-	\else
-		\pdfURL{\.{#1}}{#1}
-	\fi
-}
-
+\def\url#1{\ifx\pdfoutput\undefined\.{#1}\else\pdfURL{\.{#1}}{#1}\fi}
 
 %% \bul provide bullet points
 \def\bul{\hfil\item{\romannumeral\count255} \advance\count255 by 1}
