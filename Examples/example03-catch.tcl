@@ -1,4 +1,0 @@
-
-package require drmaa
-
-
