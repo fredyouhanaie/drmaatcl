@@ -400,7 +400,7 @@ proc ST_CONTACT {} {
 
 proc ST_EMPTY_SESSION_WAIT {} {
 	if [catch {	drmaa::drmaa_init
-			if [catch {drmaa::drmaa_wait $::ANY_JOB $::max_wait} } result] {
+			if [catch {drmaa::drmaa_wait $::ANY_JOB $::max_wait} result] {
 				if {[lindex $result 1] != "INVALID_JOB"} {
 					return -code error $result
 				}
