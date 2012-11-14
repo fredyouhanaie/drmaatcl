@@ -1,11 +1,19 @@
 
-Implement the DRMAA compliance test suite in tcltest.
-Test platforms/DRMS, SGE, Slurm, Condor
-Test platforms/OS, Linux
+These are not likely to be carried out since the DRMAAv2 spec is out
+and all efforts will be focused on the new version.
 
-Drmaa_get_attribute_names / Drmaa_get_vector_attribute_names
-	check for errors when iterating over attribute list
-		SUCCESS - continue iterating
-		NO_MORE_ELEMENTS - stop
-		anything else - report error
-	compare the number of attributes from iteration with drmaa_get_num_*
+* Attribute names
+	Provide the symbolic attribute names, instead of having to use
+	the actual name. For example in Tcl scripts, instead of using
+	"drmaa_remote_command", "$drmaa::DRMAA_REMOTE_COMMAND" should
+	be used. This would require additional table definitions in
+	drmaatcl-data.w.
+
+* Drmaa_get_attribute_names / Drmaa_get_vector_attribute_names
+	* check for errors when iterating over attribute list
+		* SUCCESS - continue iterating
+		* NO_MORE_ELEMENTS - stop
+		* anything else - report error
+	* compare the number of attributes from the iteration with
+	  drmaa_get_num_*
+
