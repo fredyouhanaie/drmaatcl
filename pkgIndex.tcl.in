@@ -1,0 +1,2 @@
+
+package ifneeded drmaa 0.1 [list load [file join @CMAKE_INSTALL_PREFIX@ lib libdrmaatcl.so]]
