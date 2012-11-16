@@ -41,6 +41,12 @@ set_source_files_properties (${DRMAATCL_SRC} PROPERTIES GENERATED TRUE)
 set (DRMAASH_SRC ${CMAKE_BINARY_DIR}/drmaash.c)
 set_source_files_properties (${DRMAASH_SRC} PROPERTIES GENERATED TRUE)
 
+# Tcl package index,
+# so that "package require drmaa" can find the extension
+set (PKG_INDEX_SRC "${CMAKE_SOURCE_DIR}/pkgIndex.tcl.in")
+set (PKG_INDEX "${CMAKE_BINARY_DIR}/pkgIndex.tcl")
+set_source_files_properties (${PKG_INDEX} PROPERTIES GENERATED TRUE)
+
 # documentation source, generated from *.w
 set (TEXFILE ${CMAKE_BINARY_DIR}/drmaatcl-main.tex)
 set_source_files_properties (${TEXFILE} PROPERTIES GENERATED TRUE)
@@ -98,3 +104,10 @@ install (
 	RUNTIME	DESTINATION	bin
 	LIBRARY	DESTINATION	lib
 )
+
+# pkgIndex.tcl - so that "package require drmaa" works
+install (
+	FILES			${PKG_INDEX}
+	DESTINATION		${CMAKE_INSTALL_PREFIX}/lib/tcltk/drmaa
+)
+configure_file (${PKG_INDEX_SRC} ${PKG_INDEX} @ONLY)
